@@ -1,0 +1,32 @@
+idea.txt
+
+# Build files
+
+build/
+cmake-build-*/
+
+# Executables
+
+*.exe
+*.out
+
+# Object files
+
+*.o
+*.obj
+
+# Debug files
+
+*.pdb
+
+# IDE
+
+.vscode/
+
+# Temporary files
+
+*.tmp
+
+# Generated audio containers
+
+*.sngp
