@@ -1,6 +1,9 @@
-#ifndef PARSER_H
+#ifndef PARSER.H
 #define PARSER_H
 
-void parser_initialize(void);
+#include<stdint.h>
+
+int parser_process_file(const char *filename);
 
 #endif
+
