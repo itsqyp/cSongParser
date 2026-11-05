@@ -30,3 +30,8 @@ cmake-build-*/
 # Generated audio containers
 
 *.sngp
+# Local audio test files
+/songs/
+
+# Generated audio containers
+*.sngp
