@@ -14,6 +14,7 @@ add_executable(
     CSongParser
     src/main.c
     src/parser.c
+    src/format.c
 )
 
 target_include_directories(
