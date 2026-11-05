@@ -4,6 +4,7 @@
 
 #include "parser.h"
 #include "format.h"
+#include "metadata.h"
 
 #define BUFFER_SIZE 4096
 
@@ -83,6 +84,25 @@ while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0)
     printf("Total Bytes    : %" PRIu64 "\n", total_bytes);
     printf("Buffer Size    : %d bytes\n", BUFFER_SIZE);
     printf("Total Chunks   : %" PRIu64 "\n", total_chunks);
+
+
+    // Extract metadata from MP3 files.
+
+if (detected_format == FORMAT_MP3)
+{
+    AudioMetadata metadata;
+
+    printf("\n[METADATA] Starting extraction...\n");
+
+    if (metadata_extract(filename, &metadata) == 0)
+    {
+        metadata_print(&metadata);
+    }
+    else
+    {
+        printf("[METADATA] Extraction failed.\n");
+    }
+}
 
     printf("\n====================================\n");
     printf("Status: SUCCESS\n");
