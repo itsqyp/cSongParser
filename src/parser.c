@@ -3,6 +3,7 @@
 #include <inttypes.h>
 
 #include "parser.h"
+#include "format.h"
 
 #define BUFFER_SIZE 4096
 
@@ -39,20 +40,23 @@ int parser_process_file(const char *filename)
 
     // Step 4: Read the file chunk by chunk
 
-    while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0)
-    {
-        total_bytes += bytes_read;
-        total_chunks++;
+   AudioFormat detected_format = FORMAT_UNKNOWN;
 
-        /*
-         * Binary data is now available inside buffer.
-         *
-         * Later, I'll implement:
-         * - Audio format detection
-         * - Metadata extraction
-         * - Binary encoding
-         */
+int format_checked = 0;
+
+while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0)
+{
+    total_bytes += bytes_read;
+    total_chunks++;
+
+    // Detect the audio format using the first buffer
+
+    if (!format_checked)
+    {
+        detected_format = detect_audio_format(buffer, bytes_read);
+        format_checked = 1;
     }
+}
 
     // Step 5: Check for reading errors
 
@@ -74,6 +78,7 @@ int parser_process_file(const char *filename)
     printf("========== FILE INFORMATION ==========\n\n");
 
     printf("Filename       : %s\n", filename);
+    printf("Audio Format   : %s\n", get_format_name(detected_format));
     printf("File Size      : %.2f MB\n", file_size_mb);
     printf("Total Bytes    : %" PRIu64 "\n", total_bytes);
     printf("Buffer Size    : %d bytes\n", BUFFER_SIZE);
