@@ -4,6 +4,7 @@
 
 #include "decoder.h"
 #include "sngp.h"
+#include "checksum.h"
 
 #define BUFFER_SIZE 4096
 
@@ -37,8 +38,29 @@ int decoder_extract_payload(
     unsigned char header[SNGP_HEADER_SIZE];
     unsigned char buffer[BUFFER_SIZE];
 
+    unsigned char calculated_checksum[SHA256_HASH_SIZE];
+
     uint64_t original_file_size;
     uint64_t remaining_bytes;
+
+    uint16_t version;
+    uint16_t header_size;
+
+    int output_created = 0;
+    int result = -1;
+
+    // Validate arguments.
+    if (container_filename == NULL || output_filename == NULL)
+    {
+        printf("[DECODER ERROR] Invalid file path.\n");
+        return -1;
+    }
+
+    if (strcmp(container_filename, output_filename) == 0)
+    {
+        printf("[DECODER ERROR] Input and output paths must be different.\n");
+        return -1;
+    }
 
     // Open the SNGP container.
     input = fopen(container_filename, "rb");
@@ -49,40 +71,52 @@ int decoder_extract_payload(
         return -1;
     }
 
-    // Read the complete SNGP header.
-    if (fread(header, 1, SNGP_HEADER_SIZE, input) != SNGP_HEADER_SIZE)
+    // Read the first 8 bytes of the header.
+    if (fread(header, 1, 8, input) != 8)
     {
-        printf("[DECODER ERROR] Invalid or incomplete header.\n");
-        fclose(input);
-        return -1;
+        printf("[DECODER ERROR] Incomplete SNGP header.\n");
+        goto cleanup;
     }
 
     // Validate magic signature.
     if (memcmp(header, SNGP_MAGIC, 4) != 0)
     {
         printf("[DECODER ERROR] Invalid SNGP signature.\n");
-        fclose(input);
-        return -1;
+        goto cleanup;
     }
 
-    // Validate container version.
-    uint16_t version = read_le16(header + 4);
+    // Read version and header size.
+    version = read_le16(header + 4);
+    header_size = read_le16(header + 6);
 
-    if (version != SNGP_VERSION)
+    // Validate supported versions and their header sizes.
+    if (version == SNGP_V1_VERSION)
+    {
+        if (header_size != SNGP_V1_HEADER_SIZE)
+        {
+            printf("[DECODER ERROR] Invalid SNGP v1 header size.\n");
+            goto cleanup;
+        }
+    }
+    else if (version == SNGP_VERSION)
+    {
+        if (header_size != SNGP_HEADER_SIZE)
+        {
+            printf("[DECODER ERROR] Invalid SNGP v2 header size.\n");
+            goto cleanup;
+        }
+    }
+    else
     {
         printf("[DECODER ERROR] Unsupported SNGP version.\n");
-        fclose(input);
-        return -1;
+        goto cleanup;
     }
 
-    // Validate header size.
-    uint16_t header_size = read_le16(header + 6);
-
-    if (header_size != SNGP_HEADER_SIZE)
+    // Read the remaining header bytes.
+    if (fread(header + 8, 1, header_size - 8, input) != header_size - 8)
     {
-        printf("[DECODER ERROR] Invalid header size.\n");
-        fclose(input);
-        return -1;
+        printf("[DECODER ERROR] Incomplete SNGP header.\n");
+        goto cleanup;
     }
 
     // Extract original audio file size.
@@ -95,6 +129,8 @@ int decoder_extract_payload(
 
     printf("Container File : %s\n", container_filename);
     printf("Output File    : %s\n", output_filename);
+    printf("Version        : %u\n", version);
+    printf("Header Size    : %u bytes\n", header_size);
     printf("Payload Size   : %llu bytes\n",
            (unsigned long long)original_file_size);
 
@@ -104,9 +140,10 @@ int decoder_extract_payload(
     if (output == NULL)
     {
         printf("[DECODER ERROR] Could not create output file.\n");
-        fclose(input);
-        return -1;
+        goto cleanup;
     }
+
+    output_created = 1;
 
     // Extract original audio bytes.
     while (remaining_bytes > 0)
@@ -121,10 +158,7 @@ int decoder_extract_payload(
         if (bytes_read != bytes_to_read)
         {
             printf("[DECODER ERROR] Container payload is incomplete.\n");
-            fclose(input);
-            fclose(output);
-            remove(output_filename);
-            return -1;
+            goto cleanup;
         }
 
         size_t bytes_written =
@@ -133,47 +167,99 @@ int decoder_extract_payload(
         if (bytes_written != bytes_read)
         {
             printf("[DECODER ERROR] Failed to write output data.\n");
-            fclose(input);
-            fclose(output);
-            remove(output_filename);
-            return -1;
+            goto cleanup;
         }
 
         remaining_bytes -= bytes_read;
     }
 
-    // The container must not contain unexpected trailing data.
+    // Check for unexpected trailing data.
     if (fgetc(input) != EOF)
     {
         printf("[DECODER ERROR] Unexpected trailing data.\n");
-        fclose(input);
-        fclose(output);
-        remove(output_filename);
-        return -1;
+        goto cleanup;
     }
 
     if (ferror(input))
     {
         printf("[DECODER ERROR] Failed while reading container.\n");
-        fclose(input);
-        fclose(output);
-        remove(output_filename);
-        return -1;
+        goto cleanup;
     }
 
-    // Check that the output was successfully closed.
-    int output_error = fclose(output);
-    int input_error = fclose(input);
-
-    if (output_error != 0 || input_error != 0)
+    // Finalize output file.
+    if (fclose(output) != 0)
     {
-        printf("[DECODER ERROR] Failed to finalize files.\n");
-        remove(output_filename);
-        return -1;
+        output = NULL;
+
+        printf("[DECODER ERROR] Failed to finalize output file.\n");
+        goto cleanup;
+    }
+
+    output = NULL;
+
+    // Close container file.
+    if (fclose(input) != 0)
+    {
+        input = NULL;
+
+        printf("[DECODER ERROR] Failed to close container file.\n");
+        goto cleanup;
+    }
+
+    input = NULL;
+
+    // Verify payload integrity for SNGP v2.
+    if (version == SNGP_VERSION)
+    {
+        printf("\n[DECODER] Verifying SHA-256 checksum...\n");
+
+        if (checksum_sha256_file(
+                output_filename,
+                calculated_checksum) != 0)
+        {
+            printf("[DECODER ERROR] Failed to calculate output checksum.\n");
+            goto cleanup;
+        }
+
+        if (memcmp(
+                calculated_checksum,
+                header + SNGP_CHECKSUM_OFFSET,
+                SHA256_HASH_SIZE) != 0)
+        {
+            printf("[DECODER ERROR] SHA-256 verification failed!\n");
+            printf("[DECODER ERROR] Extracted file may be corrupted.\n");
+            goto cleanup;
+        }
+
+        printf("[DECODER] SHA-256 verification passed.\n");
+    }
+    else
+    {
+        printf("\n[DECODER] SNGP v1 has no embedded checksum.\n");
     }
 
     printf("\n[DECODER] Extraction completed successfully.\n");
     printf("====================================\n");
 
-    return 0;
+    result = 0;
+
+cleanup:
+
+    if (input != NULL)
+    {
+        fclose(input);
+    }
+
+    if (output != NULL)
+    {
+        fclose(output);
+    }
+
+    // Remove incomplete or invalid output files.
+    if (result != 0 && output_created)
+    {
+        remove(output_filename);
+    }
+
+    return result;
 }
