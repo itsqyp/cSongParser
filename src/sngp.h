@@ -4,7 +4,6 @@
 #define SNGP_MAGIC "SNGP"
 
 #define SNGP_VERSION 2
-
 #define SNGP_HEADER_SIZE 208
 
 #define SNGP_V1_VERSION 1

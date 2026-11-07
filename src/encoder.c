@@ -4,7 +4,7 @@
 
 #include "encoder.h"
 #include "sngp.h"
-
+#include "checksum.h"
 
 // ============================================
 // WRITE LITTLE-ENDIAN INTEGER
@@ -65,11 +65,14 @@ static void write_text(
 // BUILD SNGP HEADER
 // ============================================
 
+
+
 static void build_header(
     unsigned char *header,
     AudioFormat format,
     uint64_t payload_size,
-    const AudioMetadata *metadata
+    const AudioMetadata *metadata,
+    const unsigned char checksum[SHA256_HASH_SIZE]
 )
 {
     memset(header, 0, SNGP_HEADER_SIZE);
@@ -117,6 +120,13 @@ static void build_header(
         write_text(header, 104, SNGP_ALBUM_SIZE, metadata->album);
         write_text(header, 136, SNGP_ENCODING_SIZE, metadata->encoding);
     }
+   // Store SHA-256 checksum.
+
+memcpy(
+    header + SNGP_CHECKSUM_OFFSET,
+    checksum,
+    SNGP_CHECKSUM_SIZE
+);
 }
 
 
@@ -130,8 +140,11 @@ int encoder_create_container(
     const char *output_filename,
     AudioFormat format,
     const AudioMetadata *metadata
+   
 )
 {
+
+    unsigned char checksum[SHA256_HASH_SIZE];
     if (input_filename == NULL || output_filename == NULL)
     {
         return 1;
@@ -163,7 +176,20 @@ int encoder_create_container(
         return 1;
     }
 
-    rewind(input);
+  if (fseek(input, 0, SEEK_SET) != 0)
+{
+    fclose(input);
+    return 1;
+}
+
+    // Calculate SHA-256 of the original audio payload.
+if (checksum_sha256_file(input_filename, checksum) != 0)
+{
+    printf("[ENCODER ERROR] Failed to calculate SHA-256.\n");
+    fclose(input);
+    return 1;
+}
+
 
     // Open destination container.
 
@@ -180,11 +206,22 @@ int encoder_create_container(
 
     unsigned char header[SNGP_HEADER_SIZE];
 
+//     if (checksum_sha256_file(input_filename, checksum) != 0)
+// {
+//     printf("[ENCODER ERROR] Failed to calculate SHA-256.\n");
+//     fclose(input);
+//     fclose(output);
+//     remove(output_filename);
+//     return -1;
+// }
+
     build_header(
         header,
         format,
         (uint64_t)file_size,
-        metadata
+        metadata,
+        checksum
+        
     );
 
     // Write header.
