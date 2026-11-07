@@ -113,11 +113,14 @@ int decoder_extract_payload(
     }
 
     // Read the remaining header bytes.
-    if (fread(header + 8, 1, header_size - 8, input) != header_size - 8)
-    {
-        printf("[DECODER ERROR] Incomplete SNGP header.\n");
-        goto cleanup;
-    }
+    size_t remaining_header_size = (size_t)header_size - 8;
+
+if (fread(header + 8, 1, remaining_header_size, input)
+    != remaining_header_size)
+{
+    printf("[DECODER ERROR] Incomplete SNGP header.\n");
+    goto cleanup;
+}
 
     // Extract original audio file size.
     original_file_size = read_le64(header + 16);
