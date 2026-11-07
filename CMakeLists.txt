@@ -16,6 +16,7 @@ add_executable(
     src/parser.c
     src/format.c
     src/metadata.c
+    src/encoder.c
 )
 
 target_include_directories(
