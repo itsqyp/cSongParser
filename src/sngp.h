@@ -1,0 +1,15 @@
+#ifndef SNGP_H
+#define SNGP_H
+
+#define SNGP_MAGIC "SNGP"
+
+#define SNGP_VERSION 1
+
+#define SNGP_HEADER_SIZE 176
+
+#define SNGP_TITLE_SIZE 32
+#define SNGP_ARTIST_SIZE 32
+#define SNGP_ALBUM_SIZE 32
+#define SNGP_ENCODING_SIZE 32
+
+#endif
