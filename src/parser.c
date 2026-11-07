@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <string.h>
 
 #include "parser.h"
 #include "format.h"
 #include "metadata.h"
+#include "encoder.h"
 
 #define BUFFER_SIZE 4096
 
@@ -88,6 +90,24 @@ while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0)
 
     // Extract metadata from MP3 files.
 
+// if (detected_format == FORMAT_MP3)
+// {
+//     AudioMetadata metadata;
+
+//     printf("\n[METADATA] Starting extraction...\n");
+
+//     if (metadata_extract(filename, &metadata) == 0)
+//     {
+//         metadata_print(&metadata);
+//     }
+//     else
+//     {
+//         printf("[METADATA] Extraction failed.\n");
+//     }
+// }
+
+// Extract metadata and create SNGP container.
+
 if (detected_format == FORMAT_MP3)
 {
     AudioMetadata metadata;
@@ -97,6 +117,35 @@ if (detected_format == FORMAT_MP3)
     if (metadata_extract(filename, &metadata) == 0)
     {
         metadata_print(&metadata);
+
+        // Generate output filename.
+
+        char output_filename[1024];
+
+        int result = snprintf(
+            output_filename,
+            sizeof(output_filename),
+            "%s.sngp",
+            filename
+        );
+
+        if (result < 0 || (size_t)result >= sizeof(output_filename))
+        {
+            printf("[ERROR] Output filename is too long.\n");
+        }
+        else
+        {
+            // Encode original audio into SNGP container.
+
+            if (encoder_create_container(
+                    filename,
+                    output_filename,
+                    detected_format,
+                    &metadata) != 0)
+            {
+                printf("[ERROR] SNGP encoding failed.\n");
+            }
+        }
     }
     else
     {
