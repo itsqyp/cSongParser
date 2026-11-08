@@ -19,6 +19,7 @@ add_executable(
     src/encoder.c
     src/decoder.c
     src/checksum.c
+    src/chunker.c
 )
 
 target_link_libraries(CSongParser PRIVATE bcrypt)
