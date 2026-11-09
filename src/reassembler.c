@@ -195,7 +195,7 @@ static int validate_chunk_file(
     return 0;
 }
 
-
+// Verify the SHA-256 checksum of a chunk payload.
 static int verify_chunk_checksum(
     const char *chunk_filename,
     const SngcChunkInfo *info
@@ -229,6 +229,7 @@ static int verify_chunk_checksum(
         ) != 0)
     {
         printf("[REASSEMBLER ERROR] Chunk checksum mismatch!\n");
+
         printf("[REASSEMBLER ERROR] Chunk may be corrupted: %s\n",
                chunk_filename);
 
@@ -239,6 +240,7 @@ static int verify_chunk_checksum(
 
     return 0;
 }
+
 
 int reassembler_combine_chunks(
     const char *input_prefix,
@@ -376,22 +378,30 @@ if (filename_length < 0 ||
             goto cleanup;
         }
 
-        // Ensure all chunks belong to the same container.
-        if (current_info.total_chunks != reference_info.total_chunks ||
-            current_info.original_file_size != reference_info.original_file_size)
-        {
-            printf("[REASSEMBLER ERROR] Inconsistent chunk metadata.\n");
-            goto cleanup;
-        }
+       // Ensure all chunks belong to the same container.
+if (current_info.version != reference_info.version ||
+    current_info.header_size != reference_info.header_size ||
+    current_info.total_chunks != reference_info.total_chunks ||
+    current_info.original_file_size != reference_info.original_file_size)
+{
+    printf("[REASSEMBLER ERROR] Inconsistent chunk metadata.\n");
+    goto cleanup;
+}
 
-        // Validate actual chunk file size.
-        if (validate_chunk_file(chunk_file, &current_info) != 0)
-        {
-            goto cleanup;
-        }
+      // Validate actual chunk file size.
+      if (validate_chunk_file(chunk_file, &current_info) != 0)
+     {
+      goto cleanup;
+    }
 
-        // Copy the chunk payload into the output file.
-        uint32_t remaining_bytes = current_info.payload_size;
+    // Verify the chunk's SHA-256 checksum.
+    if (verify_chunk_checksum(chunk_filename, &current_info) != 0)
+     {
+     goto cleanup;
+     }
+
+     // Copy the chunk payload into the output file.
+     uint32_t remaining_bytes = current_info.payload_size;
 
         while (remaining_bytes > 0)
         {
