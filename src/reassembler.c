@@ -249,6 +249,7 @@ int reassembler_combine_chunks(
 {
     FILE *chunk_file = NULL;
     FILE *output = NULL;
+    int output_created = 0;
 
     unsigned char buffer[BUFFER_SIZE];
 
@@ -328,13 +329,15 @@ if (filename_length < 0 ||
            reference_info.total_chunks);
 
     // Create the reconstructed output file.
-    output = fopen(output_filename, "wb");
+   output = fopen(output_filename, "wb");
 
-    if (output == NULL)
-    {
-        printf("[REASSEMBLER ERROR] Could not create output file.\n");
-        goto cleanup;
-    }
+if (output == NULL)
+{
+    printf("[REASSEMBLER ERROR] Could not create output file.\n");
+    goto cleanup;
+}
+
+output_created = 1;
 
     // Process every chunk in order.
     for (uint32_t i = 0; i < reference_info.total_chunks; i++)
@@ -486,10 +489,10 @@ cleanup:
         fclose(output);
     }
 
-    // Remove incomplete output if reassembly failed.
-    if (result != 0)
+    // Remove incomplete output only if this operation created it.
+    if (result != 0 && output_created)
     {
-        remove(output_filename);
+    remove(output_filename);
     }
 
     return result;
