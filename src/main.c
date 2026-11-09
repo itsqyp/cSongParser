@@ -7,7 +7,7 @@
 #include "decoder.h"
 #include "checksum.h"
 #include "chunker.h"
-
+#include "reassembler.h"
 
 static int verify_files(const char *original, const char *reconstructed)
 {
@@ -123,6 +123,22 @@ int main(int argc, char *argv[])
     }
 
 
+    // Reassemble SNGC chunks into an SNGP container.
+if (argc >= 2 && strcmp(argv[1], "--reassemble") == 0)
+{
+    if (argc != 4)
+    {
+        printf("\nUsage:\n");
+        printf("CSongParser --reassemble <input-prefix> <output.sngp>\n");
+        return 1;
+    }
+
+    return reassembler_combine_chunks(
+        argv[2],
+        argv[3]
+    ) == 0 ? 0 : 1;
+}
+
     // Normal audio parsing and encoding.
     if (argc != 2)
     {
@@ -131,6 +147,7 @@ int main(int argc, char *argv[])
         printf("CSongParser --decode <input.sngp> <output-file>\n");
         printf("CSongParser --verify <original-file> <reconstructed-file>\n");
         printf("CSongParser --chunk <input.sngp> <output-prefix> <chunk-size>\n");
+        printf("CSongParser --reassemble <input-prefix> <output.sngp>\n");
         return 1;
     }
 
