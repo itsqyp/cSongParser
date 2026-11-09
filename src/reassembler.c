@@ -329,7 +329,7 @@ if (filename_length < 0 ||
            reference_info.total_chunks);
 
     // Create the reconstructed output file.
-   output = fopen(output_filename, "wb");
+  output = fopen(output_filename, "wbx");
 
 if (output == NULL)
 {
