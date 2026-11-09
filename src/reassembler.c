@@ -146,19 +146,21 @@ static int read_chunk_header(
 
     return 0;
 }
+
+
 static int validate_chunk_file(
     FILE *chunk_file,
     const SngcChunkInfo *info
 )
 {
     // Move to the end of the chunk file.
-    if (fseek(chunk_file, 0, SEEK_END) != 0)
+    if (_fseeki64(chunk_file, 0, SEEK_END) != 0)
     {
         printf("[REASSEMBLER ERROR] Could not determine chunk file size.\n");
         return -1;
     }
 
-    long file_size = ftell(chunk_file);
+    __int64 file_size = _ftelli64(chunk_file);
 
     if (file_size < 0)
     {
@@ -168,7 +170,7 @@ static int validate_chunk_file(
 
     // Expected size = header + payload.
     uint64_t expected_size =
-        (uint64_t)SNGC_HEADER_SIZE + info->payload_size;
+        (uint64_t)info->header_size + info->payload_size;
 
     if ((uint64_t)file_size != expected_size)
     {
@@ -177,17 +179,63 @@ static int validate_chunk_file(
         printf("Expected Size : %llu bytes\n",
                (unsigned long long)expected_size);
 
-        printf("Actual Size   : %ld bytes\n", file_size);
+        printf("Actual Size   : %lld bytes\n",
+               (long long)file_size);
 
         return -1;
     }
 
     // Return to the beginning of the payload.
-    if (fseek(chunk_file, SNGC_HEADER_SIZE, SEEK_SET) != 0)
+    if (_fseeki64(chunk_file, info->header_size, SEEK_SET) != 0)
     {
         printf("[REASSEMBLER ERROR] Could not seek to chunk payload.\n");
         return -1;
     }
+
+    return 0;
+}
+
+
+static int verify_chunk_checksum(
+    const char *chunk_filename,
+    const SngcChunkInfo *info
+)
+{
+    // SNGC v1 does not contain chunk checksums.
+    if (info->version == SNGC_V1_VERSION)
+    {
+        return 0;
+    }
+
+    unsigned char calculated_checksum[SHA256_HASH_SIZE];
+
+    // Calculate SHA-256 of the chunk payload.
+    if (checksum_sha256_file_region(
+            chunk_filename,
+            info->header_size,
+            info->payload_size,
+            calculated_checksum
+        ) != 0)
+    {
+        printf("[REASSEMBLER ERROR] Could not calculate chunk checksum.\n");
+        return -1;
+    }
+
+    // Compare calculated checksum with stored checksum.
+    if (memcmp(
+            calculated_checksum,
+            info->checksum,
+            SHA256_HASH_SIZE
+        ) != 0)
+    {
+        printf("[REASSEMBLER ERROR] Chunk checksum mismatch!\n");
+        printf("[REASSEMBLER ERROR] Chunk may be corrupted: %s\n",
+               chunk_filename);
+
+        return -1;
+    }
+
+    printf("[REASSEMBLER] Chunk checksum verified.\n");
 
     return 0;
 }
