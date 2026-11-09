@@ -77,13 +77,18 @@ int tcp_send_file(
     rewind(file);
 
     // Send file size.
-    uint64_t network_file_size = htonll((uint64_t)file_size);
+    unsigned char file_size_header[8];
+
+    encode_u64_be(
+    (uint64_t)file_size,
+    file_size_header
+    );
 
     if (tcp_send_all(
-            socket,
-            &network_file_size,
-            sizeof(network_file_size)
-        ) != 0)
+        socket,
+        file_size_header,
+        sizeof(file_size_header)
+    ) != 0)
     {
         fclose(file);
 
@@ -155,18 +160,18 @@ int tcp_receive_file(
 )
 {
     // Receive file size.
-    uint64_t network_file_size;
+    unsigned char file_size_header[8];
 
     if (tcp_receive_all(
-            socket,
-            &network_file_size,
-            sizeof(network_file_size)
-        ) != 0)
+        socket,
+        file_size_header,
+        sizeof(file_size_header)
+    ) != 0)
     {
-        return -1;
+    return -1;
     }
 
-    uint64_t file_size = ntohll(network_file_size);
+    uint64_t file_size = decode_u64_be(file_size_header);
 
     // Validate file size.
     if (file_size == 0 || file_size > MAX_FILE_SIZE)
