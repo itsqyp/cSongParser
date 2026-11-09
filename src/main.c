@@ -10,6 +10,7 @@
 #include "reassembler.h"
 #include "network/socket_utils.h"
 #include "network/tcp_server.h"
+#include "network/tcp_client.h"
 
 static int verify_files(const char *original, const char *reconstructed)
 {
@@ -104,6 +105,28 @@ if (argc >= 2 && strcmp(argv[1], "--server") == 0)
     }
 
     int result = tcp_server_run(5000);
+
+    network_cleanup();
+
+    return result == 0 ? 0 : 1;
+}
+// Start TCP client.
+if (argc >= 2 && strcmp(argv[1], "--client") == 0)
+{
+    if (argc != 2)
+    {
+        printf("\nUsage:\n");
+        printf("CSongParser --client\n");
+
+        return 1;
+    }
+
+    if (network_initialize() != 0)
+    {
+        return 1;
+    }
+
+    int result = tcp_client_run("127.0.0.1", 5000);
 
     network_cleanup();
 
