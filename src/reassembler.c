@@ -62,9 +62,8 @@ static int read_chunk_header(
 {
     unsigned char header[SNGC_HEADER_SIZE];
 
-    // Read the complete chunk header.
-    if (fread(header, 1, SNGC_HEADER_SIZE, chunk_file)
-        != SNGC_HEADER_SIZE)
+    // Read the first 8 bytes.
+    if (fread(header, 1, 8, chunk_file) != 8)
     {
         printf("[REASSEMBLER ERROR] Could not read chunk header.\n");
         return -1;
@@ -77,29 +76,63 @@ static int read_chunk_header(
         return -1;
     }
 
-    // Validate format version.
-    uint16_t version = read_le16(header + 4);
+    // Extract version and header size.
+    info->version = read_le16(header + 4);
+    info->header_size = read_le16(header + 6);
 
-    if (version != SNGC_VERSION)
+    // Validate supported versions and their header sizes.
+    if (info->version == SNGC_V1_VERSION)
+    {
+        if (info->header_size != SNGC_V1_HEADER_SIZE)
+        {
+            printf("[REASSEMBLER ERROR] Invalid SNGC v1 header size.\n");
+            return -1;
+        }
+    }
+    else if (info->version == SNGC_VERSION)
+    {
+        if (info->header_size != SNGC_HEADER_SIZE)
+        {
+            printf("[REASSEMBLER ERROR] Invalid SNGC v2 header size.\n");
+            return -1;
+        }
+    }
+    else
     {
         printf("[REASSEMBLER ERROR] Unsupported chunk version.\n");
         return -1;
     }
 
-    // Validate header size.
-    uint16_t header_size = read_le16(header + 6);
-
-    if (header_size != SNGC_HEADER_SIZE)
+    // Read the remaining header bytes.
+    if (fread(
+            header + 8,
+            1,
+            info->header_size - 8,
+            chunk_file
+        ) != info->header_size - 8)
     {
-        printf("[REASSEMBLER ERROR] Invalid chunk header size.\n");
+        printf("[REASSEMBLER ERROR] Incomplete chunk header.\n");
         return -1;
     }
 
-    // Extract header information.
+    // Extract common header information.
     info->chunk_index = read_le32(header + 8);
     info->total_chunks = read_le32(header + 12);
     info->payload_size = read_le32(header + 16);
+
     info->original_file_size = read_le64(header + 24);
+
+    // Extract checksum for SNGC v2.
+    memset(info->checksum, 0, SHA256_HASH_SIZE);
+
+    if (info->version == SNGC_VERSION)
+    {
+        memcpy(
+            info->checksum,
+            header + SNGC_CHECKSUM_OFFSET,
+            SHA256_HASH_SIZE
+        );
+    }
 
     // Validate extracted information.
     if (info->total_chunks == 0 ||
@@ -113,7 +146,6 @@ static int read_chunk_header(
 
     return 0;
 }
-
 static int validate_chunk_file(
     FILE *chunk_file,
     const SngcChunkInfo *info
