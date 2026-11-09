@@ -1,12 +1,16 @@
 #include <stdio.h>
 #include <string.h>
 #include <winsock2.h>
+#include <stdint.h>
+#include <stdlib.h>
+
 
 #include "tcp_server.h"
-
+#include "tcp_io.h"
 
 #define SERVER_BACKLOG 5
-#define BUFFER_SIZE 1024
+#define MAX_MESSAGE_SIZE (1024 * 1024)
+
 
 
 int tcp_server_run(unsigned short port)
@@ -19,8 +23,7 @@ int tcp_server_run(unsigned short port)
 
     int client_address_length = sizeof(client_address);
 
-    char buffer[BUFFER_SIZE];
-
+   
     // Create TCP socket.
     server_socket = socket(
         AF_INET,
@@ -96,35 +99,73 @@ int tcp_server_run(unsigned short port)
     printf("[SERVER] Client connected successfully!\n");
 
     // Receive a test message.
-    int received_bytes = recv(
+   // Receive message length.
+uint32_t network_message_length;
+
+if (tcp_receive_all(
         client_socket,
-        buffer,
-        BUFFER_SIZE - 1,
-        0
-    );
+        &network_message_length,
+        sizeof(network_message_length)
+    ) != 0)
+{
+    closesocket(client_socket);
+    closesocket(server_socket);
 
-    if (received_bytes == SOCKET_ERROR)
-    {
-        printf("[SERVER ERROR] Could not receive data.\n");
-        printf("Error Code: %d\n", WSAGetLastError());
+    return -1;
+}
 
-        closesocket(client_socket);
-        closesocket(server_socket);
+// Convert length from network byte order.
+uint32_t message_length = ntohl(network_message_length);
 
-        return -1;
-    }
+// Validate message length.
 
-    if (received_bytes == 0)
-    {
-        printf("[SERVER] Client disconnected.\n");
-    }
-    else
-    {
-        buffer[received_bytes] = '\0';
+if (message_length == 0 || message_length > MAX_MESSAGE_SIZE)
+{
+    printf("[SERVER ERROR] Invalid message length.\n");
 
-        printf("\n[SERVER] Received message:\n");
-        printf("%s\n", buffer);
-    }
+    closesocket(client_socket);
+    closesocket(server_socket);
+
+    return -1;
+}
+
+// Allocate memory for the message.
+char *message = malloc((size_t)message_length + 1);
+
+if (message == NULL)
+{
+    printf("[SERVER ERROR] Memory allocation failed.\n");
+
+    closesocket(client_socket);
+    closesocket(server_socket);
+
+    return -1;
+}
+
+// Receive the complete message.
+if (tcp_receive_all(
+        client_socket,
+        message,
+        (int)message_length
+    ) != 0)
+{
+    free(message);
+
+    closesocket(client_socket);
+    closesocket(server_socket);
+
+    return -1;
+}
+
+message[message_length] = '\0';
+
+printf("\n[SERVER] Received complete message!\n");
+printf("[SERVER] Received %u bytes.\n", message_length);
+
+printf("[SERVER] First 32 bytes: %.32s\n", message);
+
+// Release allocated memory.
+free(message);
 
     // Close sockets.
     closesocket(client_socket);

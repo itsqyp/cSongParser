@@ -1,8 +1,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <winsock2.h>
+#include <stdint.h>
+#include <stdlib.h>
 
 #include "tcp_client.h"
+#include "tcp_io.h"
+
+
+#define TEST_MESSAGE_SIZE (64 * 1024)
 
 
 int tcp_client_run(
@@ -13,8 +19,6 @@ int tcp_client_run(
     SOCKET client_socket = INVALID_SOCKET;
 
     struct sockaddr_in server_address;
-
-    const char *message = "Hello from C Song Parser Client!";
 
     // Create TCP socket.
     client_socket = socket(
@@ -57,25 +61,60 @@ int tcp_client_run(
 
     printf("[CLIENT] Connected successfully!\n");
 
-    // Send test message.
-    int sent_bytes = send(
-        client_socket,
-        message,
-        (int)strlen(message),
-        0
-    );
+    // Allocate message memory.
+    char *message = malloc(TEST_MESSAGE_SIZE);
 
-    if (sent_bytes == SOCKET_ERROR)
+    if (message == NULL)
     {
-        printf("[CLIENT ERROR] Could not send data.\n");
-        printf("Error Code: %d\n", WSAGetLastError());
+        printf("[CLIENT ERROR] Memory allocation failed.\n");
 
         closesocket(client_socket);
 
         return -1;
     }
 
-    printf("[CLIENT] Sent %d bytes.\n", sent_bytes);
+    // Fill message with repeating alphabet pattern.
+    for (int i = 0; i < TEST_MESSAGE_SIZE; i++)
+    {
+        message[i] = 'A' + (i % 26);
+    }
+
+    // Prepare message length.
+    uint32_t network_message_length = htonl(TEST_MESSAGE_SIZE);
+
+    // Send message header.
+    if (tcp_send_all(
+            client_socket,
+            &network_message_length,
+            sizeof(network_message_length)
+        ) != 0)
+    {
+        free(message);
+        closesocket(client_socket);
+
+        return -1;
+    }
+
+    // Send complete message.
+    if (tcp_send_all(
+            client_socket,
+            message,
+            TEST_MESSAGE_SIZE
+        ) != 0)
+    {
+        free(message);
+        closesocket(client_socket);
+
+        return -1;
+    }
+
+    printf(
+        "[CLIENT] Successfully sent %d bytes.\n",
+        TEST_MESSAGE_SIZE
+    );
+
+    // Release allocated memory.
+    free(message);
 
     // Close socket.
     closesocket(client_socket);
