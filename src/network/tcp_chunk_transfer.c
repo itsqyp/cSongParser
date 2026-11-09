@@ -78,7 +78,7 @@ int tcp_send_chunks(
             i
         );
 
-        if (length < 0 || length >= sizeof(filename))
+        if (length < 0 || (size_t)length >= sizeof(filename))
         {
             printf("[CHUNK TRANSFER ERROR] Filename is too long.\n");
             return -1;
@@ -145,7 +145,7 @@ int tcp_receive_chunks(
             i
         );
 
-        if (length < 0 || length >= sizeof(filename))
+        if (length < 0 || (size_t)length >= sizeof(filename))
         {
             printf("[CHUNK TRANSFER ERROR] Filename is too long.\n");
             return -1;
