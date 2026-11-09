@@ -4,6 +4,8 @@
 
 #include "reassembler.h"
 #include "chunker.h"
+#include "checksum.h"
+
 
 #define BUFFER_SIZE 4096
 #define CHUNK_FILENAME_SIZE 512
@@ -39,10 +41,16 @@ static uint64_t read_le64(const unsigned char *data)
 
 typedef struct
 {
+    uint16_t version;
+    uint16_t header_size;
+
     uint32_t chunk_index;
     uint32_t total_chunks;
     uint32_t payload_size;
+
     uint64_t original_file_size;
+
+    unsigned char checksum[SHA256_HASH_SIZE];
 
 } SngcChunkInfo;
 
