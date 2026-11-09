@@ -1,19 +1,15 @@
 #include <stdio.h>
-#include <string.h>
 #include <winsock2.h>
-#include <stdint.h>
-#include <stdlib.h>
-
 
 #include "tcp_server.h"
-#include "tcp_io.h"
+#include "tcp_file_transfer.h"
 
 #define SERVER_BACKLOG 5
-#define MAX_MESSAGE_SIZE (1024 * 1024)
 
-
-
-int tcp_server_run(unsigned short port)
+int tcp_server_run(
+    unsigned short port,
+    const char *output_filename
+)
 {
     SOCKET server_socket = INVALID_SOCKET;
     SOCKET client_socket = INVALID_SOCKET;
@@ -23,8 +19,7 @@ int tcp_server_run(unsigned short port)
 
     int client_address_length = sizeof(client_address);
 
-   
-    // Create TCP socket.
+    /* Create TCP socket. */
     server_socket = socket(
         AF_INET,
         SOCK_STREAM,
@@ -33,53 +28,41 @@ int tcp_server_run(unsigned short port)
 
     if (server_socket == INVALID_SOCKET)
     {
-        printf("[SERVER ERROR] Could not create socket.\n");
-        printf("Error Code: %d\n", WSAGetLastError());
-
+        printf("[SERVER] Socket creation failed: %d\n", WSAGetLastError());
         return -1;
     }
 
-    // Configure server address.
-    memset(&server_address, 0, sizeof(server_address));
-
+    /* Configure server address. */
     server_address.sin_family = AF_INET;
     server_address.sin_port = htons(port);
     server_address.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    // Bind socket to port.
+    /* Bind socket. */
     if (bind(
-            server_socket,
-            (struct sockaddr *)&server_address,
-            sizeof(server_address)
-        ) == SOCKET_ERROR)
+        server_socket,
+        (struct sockaddr *)&server_address,
+        sizeof(server_address)
+    ) == SOCKET_ERROR)
     {
-        printf("[SERVER ERROR] Could not bind socket.\n");
-        printf("Error Code: %d\n", WSAGetLastError());
+        printf("[SERVER] Bind failed: %d\n", WSAGetLastError());
 
         closesocket(server_socket);
-
         return -1;
     }
 
-    // Start listening for connections.
+    /* Start listening. */
     if (listen(server_socket, SERVER_BACKLOG) == SOCKET_ERROR)
     {
-        printf("[SERVER ERROR] Could not start listening.\n");
-        printf("Error Code: %d\n", WSAGetLastError());
+        printf("[SERVER] Listen failed: %d\n", WSAGetLastError());
 
         closesocket(server_socket);
-
         return -1;
     }
 
-    printf("\n====================================\n");
-    printf("          TCP SERVER\n");
-    printf("====================================\n");
-
     printf("[SERVER] Listening on port %u...\n", port);
-    printf("[SERVER] Waiting for a client connection...\n");
+    printf("[SERVER] Waiting for incoming connection...\n");
 
-    // Accept an incoming client connection.
+    /* Accept client connection. */
     client_socket = accept(
         server_socket,
         (struct sockaddr *)&client_address,
@@ -88,90 +71,28 @@ int tcp_server_run(unsigned short port)
 
     if (client_socket == INVALID_SOCKET)
     {
-        printf("[SERVER ERROR] Could not accept connection.\n");
-        printf("Error Code: %d\n", WSAGetLastError());
+        printf("[SERVER] Accept failed: %d\n", WSAGetLastError());
 
         closesocket(server_socket);
-
         return -1;
     }
 
-    printf("[SERVER] Client connected successfully!\n");
+    printf("[SERVER] Client connected.\n");
 
-    // Receive a test message.
-   // Receive message length.
-uint32_t network_message_length;
+    /* Receive binary file. */
+    if (tcp_receive_file(client_socket, output_filename) != 0)
+    {
+        printf("[SERVER] File transfer failed.\n");
 
-if (tcp_receive_all(
-        client_socket,
-        &network_message_length,
-        sizeof(network_message_length)
-    ) != 0)
-{
-    closesocket(client_socket);
-    closesocket(server_socket);
+        closesocket(client_socket);
+        closesocket(server_socket);
+        return -1;
+    }
 
-    return -1;
-}
-
-// Convert length from network byte order.
-uint32_t message_length = ntohl(network_message_length);
-
-// Validate message length.
-
-if (message_length == 0 || message_length > MAX_MESSAGE_SIZE)
-{
-    printf("[SERVER ERROR] Invalid message length.\n");
+    printf("[SERVER] File received successfully.\n");
 
     closesocket(client_socket);
     closesocket(server_socket);
-
-    return -1;
-}
-
-// Allocate memory for the message.
-char *message = malloc((size_t)message_length + 1);
-
-if (message == NULL)
-{
-    printf("[SERVER ERROR] Memory allocation failed.\n");
-
-    closesocket(client_socket);
-    closesocket(server_socket);
-
-    return -1;
-}
-
-// Receive the complete message.
-if (tcp_receive_all(
-        client_socket,
-        message,
-        (int)message_length
-    ) != 0)
-{
-    free(message);
-
-    closesocket(client_socket);
-    closesocket(server_socket);
-
-    return -1;
-}
-
-message[message_length] = '\0';
-
-printf("\n[SERVER] Received complete message!\n");
-printf("[SERVER] Received %u bytes.\n", message_length);
-
-printf("[SERVER] First 32 bytes: %.32s\n", message);
-
-// Release allocated memory.
-free(message);
-
-    // Close sockets.
-    closesocket(client_socket);
-    closesocket(server_socket);
-
-    printf("\n[SERVER] Connection closed.\n");
 
     return 0;
 }
