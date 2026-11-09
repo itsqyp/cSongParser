@@ -89,12 +89,13 @@ int main(int argc, char *argv[])
     }
     
     // Start TCP server.
+
 if (argc >= 2 && strcmp(argv[1], "--server") == 0)
 {
-    if (argc != 2)
+    if (argc != 3)
     {
         printf("\nUsage:\n");
-        printf("CSongParser --server\n");
+        printf("CSongParser --server <output-file>\n");
 
         return 1;
     }
@@ -104,7 +105,7 @@ if (argc >= 2 && strcmp(argv[1], "--server") == 0)
         return 1;
     }
 
-    int result = tcp_server_run(5000);
+    int result = tcp_server_run(5000, argv[2]);
 
     network_cleanup();
 
@@ -113,10 +114,10 @@ if (argc >= 2 && strcmp(argv[1], "--server") == 0)
 // Start TCP client.
 if (argc >= 2 && strcmp(argv[1], "--client") == 0)
 {
-    if (argc != 2)
+    if (argc != 3)
     {
         printf("\nUsage:\n");
-        printf("CSongParser --client\n");
+        printf("CSongParser --client <input-file>\n");
 
         return 1;
     }
@@ -126,7 +127,7 @@ if (argc >= 2 && strcmp(argv[1], "--client") == 0)
         return 1;
     }
 
-    int result = tcp_client_run("127.0.0.1", 5000);
+    int result = tcp_client_run("127.0.0.1", 5000, argv[2]);
 
     network_cleanup();
 
@@ -216,6 +217,9 @@ if (argc >= 2 && strcmp(argv[1], "--reassemble") == 0)
         printf("CSongParser --verify <original-file> <reconstructed-file>\n");
         printf("CSongParser --chunk <input.sngp> <output-prefix> <chunk-size>\n");
         printf("CSongParser --reassemble <input-prefix> <output.sngp>\n");
+        printf("CSongParser --server <output-file>\n");
+        printf("CSongParser --client <input-file>\n");
+        printf("CSongParser --net-test\n");
         return 1;
     }
 
