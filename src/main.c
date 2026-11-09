@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include <string.h>
+#include<stdlib.h>
+#include<stdint.h>
 
 #include "parser.h"
 #include "decoder.h"
 #include "checksum.h"
-
+#include "chunker.h"
 
 
 static int verify_files(const char *original, const char *reconstructed)
@@ -89,6 +91,38 @@ int main(int argc, char *argv[])
         return verify_files(argv[2], argv[3]);
     }
 
+
+    // Split an SNGP container into binary chunks.
+    if (argc >= 2 && strcmp(argv[1], "--chunk") == 0)
+    {
+        if (argc != 5)
+        {
+            printf("\nUsage:\n");
+            printf("CSongParser --chunk <input.sngp> <output-prefix> <chunk-size>\n");
+            return 1;
+        }
+
+        char *end_pointer;
+
+        unsigned long chunk_size = strtoul(argv[4], &end_pointer, 10);
+
+        if (*argv[4] == '\0' ||
+            *end_pointer != '\0' ||
+            chunk_size == 0 ||
+            chunk_size > UINT32_MAX)
+        {
+            printf("[CHUNKER ERROR] Invalid chunk size.\n");
+            return 1;
+        }
+
+        return chunker_create_chunks(
+            argv[2],
+            argv[3],
+            (uint32_t)chunk_size
+        ) == 0 ? 0 : 1;
+    }
+
+
     // Normal audio parsing and encoding.
     if (argc != 2)
     {
@@ -96,7 +130,7 @@ int main(int argc, char *argv[])
         printf("CSongParser <audio-file>\n");
         printf("CSongParser --decode <input.sngp> <output-file>\n");
         printf("CSongParser --verify <original-file> <reconstructed-file>\n");
-
+        printf("CSongParser --chunk <input.sngp> <output-prefix> <chunk-size>\n");
         return 1;
     }
 
