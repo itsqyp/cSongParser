@@ -195,6 +195,43 @@ static int validate_chunk_file(
     return 0;
 }
 
+// Validate the expected payload size of a chunk.
+static int validate_chunk_payload_size(
+    const SngcChunkInfo *info,
+    uint32_t expected_chunk_size
+)
+{
+    uint64_t bytes_before_chunk =
+        (uint64_t)info->chunk_index * expected_chunk_size;
+
+    if (bytes_before_chunk >= info->original_file_size)
+    {
+        printf("[REASSEMBLER ERROR] Invalid chunk position.\n");
+        return -1;
+    }
+
+    uint64_t remaining_bytes =
+        info->original_file_size - bytes_before_chunk;
+
+    uint32_t expected_payload_size =
+        remaining_bytes < expected_chunk_size
+            ? (uint32_t)remaining_bytes
+            : expected_chunk_size;
+
+    if (info->payload_size != expected_payload_size)
+    {
+        printf("[REASSEMBLER ERROR] Unexpected chunk payload size.\n");
+
+        printf("Expected Size : %u bytes\n", expected_payload_size);
+        printf("Actual Size   : %u bytes\n", info->payload_size);
+
+        return -1;
+    }
+
+    return 0;
+}
+
+
 // Verify the SHA-256 checksum of a chunk payload.
 static int verify_chunk_checksum(
     const char *chunk_filename,
