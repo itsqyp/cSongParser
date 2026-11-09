@@ -10,6 +10,35 @@
 #define MAX_FILE_SIZE (1024ULL * 1024ULL * 1024ULL)
 
 
+// Convert a 64-bit integer into 8 big-endian bytes.
+static void encode_u64_be(
+    uint64_t value,
+    unsigned char buffer[8]
+)
+{
+    for (int i = 7; i >= 0; i--)
+    {
+        buffer[i] = (unsigned char)(value & 0xFF);
+        value >>= 8;
+    }
+}
+
+
+// Convert 8 big-endian bytes into a 64-bit integer.
+static uint64_t decode_u64_be(
+    const unsigned char buffer[8]
+)
+{
+    uint64_t value = 0;
+
+    for (int i = 0; i < 8; i++)
+    {
+        value = (value << 8) | buffer[i];
+    }
+
+    return value;
+}
+
 int tcp_send_file(
     SOCKET socket,
     const char *filename
