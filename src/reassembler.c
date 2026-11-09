@@ -109,7 +109,7 @@ static int read_chunk_header(
             1,
             info->header_size - 8,
             chunk_file
-        ) != info->header_size - 8)
+        ) != (size_t)(info->header_size - 8))
     {
         printf("[REASSEMBLER ERROR] Incomplete chunk header.\n");
         return -1;
