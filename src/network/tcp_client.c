@@ -2,12 +2,13 @@
 #include <winsock2.h>
 
 #include "tcp_client.h"
-#include "tcp_file_transfer.h"
+#include "tcp_chunk_transfer.h"
 
 int tcp_client_run(
     const char *server_ip,
     unsigned short port,
-    const char *filename
+    const char *input_prefix,
+    uint32_t total_chunks
 )
 {
     SOCKET client_socket = INVALID_SOCKET;
@@ -49,16 +50,20 @@ int tcp_client_run(
 
     printf("[CLIENT] Connected successfully.\n");
 
-    /* Send binary file. */
-    if (tcp_send_file(client_socket, filename) != 0)
+    /* Send multiple chunks. */
+    if (tcp_send_chunks(
+        client_socket,
+        input_prefix,
+        total_chunks
+    ) != 0)
     {
-        printf("[CLIENT] File transfer failed.\n");
+        printf("[CLIENT] Chunk transfer failed.\n");
 
         closesocket(client_socket);
         return -1;
     }
 
-    printf("[CLIENT] File transfer completed.\n");
+    printf("[CLIENT] All chunks transferred successfully.\n");
 
     closesocket(client_socket);
 
