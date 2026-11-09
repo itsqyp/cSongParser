@@ -25,6 +25,7 @@ add_executable(
     #Networking
     src/network/socket_utils.c
     src/network/tcp_server.c
+    src/network/tcp_client.c
 )
 
 target_link_libraries(
