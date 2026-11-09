@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "chunker.h"
+#include "checksum.h"
 
 #define BUFFER_SIZE 4096
 
@@ -37,7 +38,9 @@ static void build_chunk_header(
     uint32_t chunk_index,
     uint32_t total_chunks,
     uint32_t payload_size,
-    uint64_t original_file_size)
+    uint64_t original_file_size,
+    const unsigned char checksum[SHA256_HASH_SIZE]
+)
 {
     memset(header, 0, SNGC_HEADER_SIZE);
 
@@ -51,6 +54,13 @@ static void build_chunk_header(
     write_le32(header + 16, payload_size);
 
     write_le64(header + 24, original_file_size);
+
+    // Store the payload SHA-256 checksum.
+    memcpy(
+        header + SNGC_CHECKSUM_OFFSET,
+        checksum,
+        SHA256_HASH_SIZE
+    );
 }
 
 int chunker_create_chunks(
@@ -63,7 +73,7 @@ int chunker_create_chunks(
 
     unsigned char header[SNGC_HEADER_SIZE];
     unsigned char buffer[BUFFER_SIZE];
-
+    unsigned char chunk_checksum[SHA256_HASH_SIZE];
     uint64_t original_file_size;
     uint64_t remaining_bytes;
 
@@ -162,12 +172,26 @@ int chunker_create_chunks(
         }
 
         // Build chunk header.
+      // Calculate SHA-256 of the current chunk payload.
+      if (checksum_sha256_file_region(
+        input_filename,
+        (uint64_t)chunk_index * chunk_size,
+        current_payload_size,
+        chunk_checksum
+        ) != 0)
+        {
+        printf("[CHUNKER ERROR] Could not calculate chunk checksum.\n");
+        goto cleanup;
+         }
+
+         // Build SNGC v2 header.
         build_chunk_header(
-            header,
-            chunk_index,
-            total_chunks,
-            current_payload_size,
-            original_file_size
+        header,
+       chunk_index,
+       total_chunks,
+       current_payload_size,
+       original_file_size,
+       chunk_checksum
         );
 
         // Write chunk header.
