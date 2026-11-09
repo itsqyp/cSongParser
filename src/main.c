@@ -8,6 +8,8 @@
 #include "checksum.h"
 #include "chunker.h"
 #include "reassembler.h"
+#include "network/socket_utils.h"
+
 
 static int verify_files(const char *original, const char *reconstructed)
 {
@@ -64,7 +66,26 @@ int main(int argc, char *argv[])
 
     printf("Binary Audio Processing System\n");
     printf("Status: Initializing...\n");
+    // Test Winsock initialization.
+    if (argc >= 2 && strcmp(argv[1], "--net-test") == 0)
+    {
+    if (argc != 2)
+    {
+        printf("\nUsage:\n");
+        printf("CSongParser --net-test\n");
 
+        return 1;
+    }
+
+    if (network_initialize() != 0)
+    {
+        return 1;
+    }
+
+    network_cleanup();
+
+    return 0;
+    }
     // Decode an SNGP container.
     if (argc >= 2 && strcmp(argv[1], "--decode") == 0)
     {
