@@ -358,7 +358,27 @@ if (filename_length < 0 ||
 
 
     expected_chunk_size = reference_info.payload_size;
+    // Validate the expected total number of chunks.
+uint64_t expected_total_chunks =
+    reference_info.original_file_size / expected_chunk_size +
+    (reference_info.original_file_size % expected_chunk_size != 0);
 
+if (expected_total_chunks != reference_info.total_chunks)
+{
+    printf("[REASSEMBLER ERROR] Invalid total chunk count.\n");
+
+    printf(
+        "Expected Chunks : %llu\n",
+        (unsigned long long)expected_total_chunks
+    );
+
+    printf(
+        "Actual Chunks   : %u\n",
+        reference_info.total_chunks
+    );
+
+    goto cleanup;
+}
 
     fclose(chunk_file);
     chunk_file = NULL;
