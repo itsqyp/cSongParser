@@ -9,7 +9,7 @@
 #include "chunker.h"
 #include "reassembler.h"
 #include "network/socket_utils.h"
-
+#include "network/tcp_server.h"
 
 static int verify_files(const char *original, const char *reconstructed)
 {
@@ -86,6 +86,30 @@ int main(int argc, char *argv[])
 
     return 0;
     }
+    
+    // Start TCP server.
+if (argc >= 2 && strcmp(argv[1], "--server") == 0)
+{
+    if (argc != 2)
+    {
+        printf("\nUsage:\n");
+        printf("CSongParser --server\n");
+
+        return 1;
+    }
+
+    if (network_initialize() != 0)
+    {
+        return 1;
+    }
+
+    int result = tcp_server_run(5000);
+
+    network_cleanup();
+
+    return result == 0 ? 0 : 1;
+}
+
     // Decode an SNGP container.
     if (argc >= 2 && strcmp(argv[1], "--decode") == 0)
     {
