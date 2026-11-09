@@ -296,7 +296,7 @@ int reassembler_combine_chunks(
     SngcChunkInfo current_info;
 
     uint64_t total_payload_written = 0;
-
+    uint32_t expected_chunk_size = 0;
     int result = -1;
 
     // Validate arguments.
@@ -355,6 +355,10 @@ if (filename_length < 0 ||
     {
         goto cleanup;
     }
+
+
+    expected_chunk_size = reference_info.payload_size;
+
 
     fclose(chunk_file);
     chunk_file = NULL;
@@ -432,6 +436,14 @@ if (current_info.version != reference_info.version ||
       if (validate_chunk_file(chunk_file, &current_info) != 0)
      {
       goto cleanup;
+    }
+    // Validate expected payload size.
+    if (validate_chunk_payload_size(
+        &current_info,
+        expected_chunk_size
+     ) != 0)
+    {
+     goto cleanup;
     }
 
     // Verify the chunk's SHA-256 checksum.
