@@ -21,9 +21,17 @@ add_executable(
     src/checksum.c
     src/chunker.c
     src/reassembler.c
+
+    #Networking
+    src/network/socket_utils.c
 )
 
-target_link_libraries(CSongParser PRIVATE bcrypt)
+target_link_libraries(
+    CSongParser
+    PRIVATE
+        bcrypt
+        ws2_32
+)
 
 target_include_directories(
     CSongParser
