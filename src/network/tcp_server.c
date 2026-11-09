@@ -2,13 +2,13 @@
 #include <winsock2.h>
 
 #include "tcp_server.h"
-#include "tcp_file_transfer.h"
+#include "tcp_chunk_transfer.h"
 
 #define SERVER_BACKLOG 5
 
 int tcp_server_run(
     unsigned short port,
-    const char *output_filename
+    const char *output_prefix
 )
 {
     SOCKET server_socket = INVALID_SOCKET;
@@ -18,6 +18,7 @@ int tcp_server_run(
     struct sockaddr_in client_address;
 
     int client_address_length = sizeof(client_address);
+    int result = -1;
 
     /* Create TCP socket. */
     server_socket = socket(
@@ -45,18 +46,14 @@ int tcp_server_run(
     ) == SOCKET_ERROR)
     {
         printf("[SERVER] Bind failed: %d\n", WSAGetLastError());
-
-        closesocket(server_socket);
-        return -1;
+        goto cleanup;
     }
 
     /* Start listening. */
     if (listen(server_socket, SERVER_BACKLOG) == SOCKET_ERROR)
     {
         printf("[SERVER] Listen failed: %d\n", WSAGetLastError());
-
-        closesocket(server_socket);
-        return -1;
+        goto cleanup;
     }
 
     printf("[SERVER] Listening on port %u...\n", port);
@@ -72,27 +69,33 @@ int tcp_server_run(
     if (client_socket == INVALID_SOCKET)
     {
         printf("[SERVER] Accept failed: %d\n", WSAGetLastError());
-
-        closesocket(server_socket);
-        return -1;
+        goto cleanup;
     }
 
     printf("[SERVER] Client connected.\n");
 
-    /* Receive binary file. */
-    if (tcp_receive_file(client_socket, output_filename) != 0)
+    /* Receive all binary chunks. */
+    if (tcp_receive_chunks(client_socket, output_prefix) != 0)
     {
-        printf("[SERVER] File transfer failed.\n");
-
-        closesocket(client_socket);
-        closesocket(server_socket);
-        return -1;
+        printf("[SERVER] Chunk transfer failed.\n");
+        goto cleanup;
     }
 
-    printf("[SERVER] File received successfully.\n");
+    printf("[SERVER] All chunks received successfully.\n");
 
-    closesocket(client_socket);
-    closesocket(server_socket);
+    result = 0;
 
-    return 0;
+cleanup:
+
+    if (client_socket != INVALID_SOCKET)
+    {
+        closesocket(client_socket);
+    }
+
+    if (server_socket != INVALID_SOCKET)
+    {
+        closesocket(server_socket);
+    }
+
+    return result;
 }

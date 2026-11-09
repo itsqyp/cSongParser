@@ -3,7 +3,7 @@
 
 int tcp_server_run(
     unsigned short port,
-    const char *output_filename
+    const char *output_prefix
 );
 
 #endif
