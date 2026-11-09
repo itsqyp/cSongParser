@@ -3,7 +3,8 @@
 
 int tcp_client_run(
     const char *server_ip,
-    unsigned short port
+    unsigned short port,
+    const char *filename
 );
 
 #endif
