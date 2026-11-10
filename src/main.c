@@ -9,6 +9,8 @@
 #include "chunker.h"
 #include "reassembler.h"
 #include "menu.h"
+#include "sender.h"
+#include "receiver.h"
 #include "network/socket_utils.h"
 #include "network/tcp_server.h"
 #include "network/tcp_client.h"
@@ -95,13 +97,11 @@ static int run_interactive_menu(void)
         switch (choice)
         {
             case 1:
-                printf("\n[SEND] Send Files selected.\n");
-                printf("[INFO] Sender functionality is coming soon.\n");
+                sender_run();
                 break;
 
             case 2:
-                printf("\n[RECEIVE] Receive Files selected.\n");
-                printf("[INFO] Receiver functionality is coming soon.\n");
+                receiver_run();
                 break;
 
             case 3:
