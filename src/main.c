@@ -8,6 +8,7 @@
 #include "checksum.h"
 #include "chunker.h"
 #include "reassembler.h"
+#include "menu.h"
 #include "network/socket_utils.h"
 #include "network/tcp_server.h"
 #include "network/tcp_client.h"
@@ -85,7 +86,33 @@ static int parse_port(
     return 0;
 }
 
+static int run_interactive_menu(void)
+{
+    while (1)
+    {
+        int choice = menu_get_choice();
 
+        switch (choice)
+        {
+            case 1:
+                printf("\n[SEND] Send Files selected.\n");
+                printf("[INFO] Sender functionality is coming soon.\n");
+                break;
+
+            case 2:
+                printf("\n[RECEIVE] Receive Files selected.\n");
+                printf("[INFO] Receiver functionality is coming soon.\n");
+                break;
+
+            case 3:
+                printf("\n[EXIT] Thank you for using C Song Parser!\n");
+                return 0;
+
+            default:
+                break;
+        }
+    }
+}
 
 int main(int argc, char *argv[])
 {
@@ -95,6 +122,13 @@ int main(int argc, char *argv[])
 
     printf("Binary Audio Processing System\n");
     printf("Status: Initializing...\n");
+
+
+    /* Launch interactive menu when no arguments are provided. */
+if (argc == 1)
+{
+    return run_interactive_menu();
+}
     // Test Winsock initialization.
     if (argc >= 2 && strcmp(argv[1], "--net-test") == 0)
     {
