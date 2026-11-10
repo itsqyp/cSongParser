@@ -138,7 +138,7 @@ if (fread(header + 8, 1, remaining_header_size, input)
            (unsigned long long)original_file_size);
 
     // Open destination file.
-    output = fopen(output_filename, "wb");
+    output = fopen(output_filename, "wbx");
 
     if (output == NULL)
     {
