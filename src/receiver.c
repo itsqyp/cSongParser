@@ -14,7 +14,6 @@
 
 #include "decoder.h"
 #include "reassembler.h"
-#include "chunker.h"
 
 #include "network/tcp_chunk_transfer.h"
 #include "network/tcp_ack.h"
@@ -57,6 +56,7 @@ static int receiver_read_port(unsigned short *port)
     return 0;
 }
 
+
 static int receiver_read_destination(
     char *destination,
     size_t destination_size
@@ -95,6 +95,7 @@ static int receiver_read_destination(
     return 0;
 }
 
+
 static int receiver_display_file_info(const TcpFileInfo *info)
 {
     printf("\n====================================\n");
@@ -127,40 +128,38 @@ static int receiver_display_file_info(const TcpFileInfo *info)
 }
 
 
+/*
+   Remove only temporary files created by this transfer.
+*/
 static void receiver_cleanup(
     const char *container_filename,
     const char *output_prefix,
-    uint64_t container_size,
+    uint32_t total_chunks,
     int container_created,
     int chunks_created
 )
 {
-    /* Delete only the container created by this transfer. */
     if (container_created)
     {
         remove(container_filename);
     }
 
-    /* Delete chunks only if this transfer created them. */
     if (chunks_created)
     {
-        uint64_t total_chunks =
-            container_size / DEFAULT_CHUNK_SIZE +
-            (container_size % DEFAULT_CHUNK_SIZE != 0);
-
-        for (uint64_t i = 0; i < total_chunks; i++)
+        for (uint32_t i = 0; i < total_chunks; i++)
         {
             char chunk_filename[INPUT_SIZE];
 
             int length = snprintf(
                 chunk_filename,
                 sizeof(chunk_filename),
-                "%s.part%06llu.sngc",
+                "%s.part%06u.sngc",
                 output_prefix,
-                (unsigned long long)i
+                i
             );
 
-            if (length < 0 || length >= (int)sizeof(chunk_filename))
+            if (length < 0 ||
+                length >= (int)sizeof(chunk_filename))
             {
                 continue;
             }
@@ -169,6 +168,7 @@ static void receiver_cleanup(
         }
     }
 }
+
 
 int receiver_run(void)
 {
@@ -180,21 +180,21 @@ int receiver_run(void)
     int result = 1;
     int winsock_initialized = 0;
 
+    int transfer_accepted = 0;
+
+    int chunks_created = 0;
+    int container_created = 0;
+    int output_created = 0;
+
+    uint32_t received_chunk_count = 0;
+
     struct sockaddr_in server_address;
 
     TcpFileInfo incoming_file;
 
     char destination[INPUT_SIZE];
     char container_filename[INPUT_SIZE];
-char output_prefix[INPUT_SIZE];
-
-uint64_t container_size = 0;
-
-int transfer_accepted = 0;
-
-int chunks_created = 0;
-int container_created = 0;
-int output_created = 0;
+    char output_prefix[INPUT_SIZE];
 
     printf("\n====================================\n");
     printf("          FILE RECEIVER\n");
@@ -336,231 +336,190 @@ int output_created = 0;
     }
 
     /*
+       Prepare temporary file paths.
+    */
+
+    int prefix_path_length = snprintf(
+        output_prefix,
+        sizeof(output_prefix),
+        "%s.incoming",
+        destination
+    );
+
+    int container_path_length = snprintf(
+        container_filename,
+        sizeof(container_filename),
+        "%s.incoming.sngp",
+        destination
+    );
+
+    if (prefix_path_length < 0 ||
+        prefix_path_length >= (int)sizeof(output_prefix) ||
+        container_path_length < 0 ||
+        container_path_length >= (int)sizeof(container_filename))
+    {
+        printf("[RECEIVER ERROR] Destination path is too long.\n");
+
+        tcp_send_handshake_response(
+            client_socket,
+            TCP_HANDSHAKE_REJECT
+        );
+
+        goto cleanup;
+    }
+
+    /*
        Accept transfer.
     */
 
-   /*
-   Prepare temporary file paths.
-*/
-
-int prefix_path_length = snprintf(
-    output_prefix,
-    sizeof(output_prefix),
-    "%s.incoming",
-    destination
-);
-
-int container_path_length = snprintf(
-    container_filename,
-    sizeof(container_filename),
-    "%s.incoming.sngp",
-    destination
-);
-
-if (prefix_path_length < 0 ||
-    prefix_path_length >= (int)sizeof(output_prefix) ||
-    container_path_length < 0 ||
-    container_path_length >= (int)sizeof(container_filename))
-{
-    printf("[RECEIVER ERROR] Destination path is too long.\n");
-
-    tcp_send_handshake_response(
+    if (tcp_send_handshake_response(
         client_socket,
-        TCP_HANDSHAKE_REJECT
-    );
+        TCP_HANDSHAKE_ACCEPT
+    ) != 0)
+    {
+        printf("[RECEIVER ERROR] Could not send handshake response.\n");
+        goto cleanup;
+    }
 
-    goto cleanup;
-}
-{
-    printf("[RECEIVER ERROR] Destination path is too long.\n");
+    transfer_accepted = 1;
 
-    tcp_send_handshake_response(
+    printf("\n[RECEIVER] Transfer accepted.\n");
+    printf("[RECEIVER] Destination: %s\n", destination);
+
+    /*
+       Receive chunks.
+    */
+
+    printf("\n[RECEIVER] Receiving chunks...\n");
+
+    if (tcp_receive_chunks(
         client_socket,
-        TCP_HANDSHAKE_REJECT
-    );
-
-    goto cleanup;
-}
-
-/*
-   Accept transfer.
-*/
-
-if (tcp_send_handshake_response(
-    client_socket,
-    TCP_HANDSHAKE_ACCEPT
-) != 0)
-{
-    printf("[RECEIVER ERROR] Could not send handshake response.\n");
-    goto cleanup;
-}
-
-transfer_accepted = 1;
-
-printf("\n[RECEIVER] Transfer accepted.\n");
-printf("[RECEIVER] Destination: %s\n", destination);
-
-/*
-   Receive chunks.
-*/
-
-printf("\n[RECEIVER] Receiving chunks...\n");
-
-if (tcp_receive_chunks(
-    client_socket,
-    output_prefix
-) != 0)
-{
-    printf("[RECEIVER ERROR] Chunk reception failed.\n");
-    goto transfer_finished;
-}
-
-chunks_created = 1;
-
-/*
-   Reassemble SNGC chunks.
-*/
-
-printf("\n[RECEIVER] Reassembling chunks...\n");
-
-if (reassembler_combine_chunks(
-    output_prefix,
-    container_filename
-) != 0)
-{
-    printf("[RECEIVER ERROR] Reassembly failed.\n");
-    goto transfer_finished;
-}
-
-container_created = 1;
-
-/*
-   Determine reconstructed container size.
-*/
-
-FILE *container = fopen(container_filename, "rb");
-
-if (container == NULL ||
-    fseek(container, 0, SEEK_END) != 0)
-{
-    if (container != NULL)
+        output_prefix,
+        &received_chunk_count
+    ) != 0)
     {
-        fclose(container);
+        printf("[RECEIVER ERROR] Chunk reception failed.\n");
+        goto transfer_finished;
     }
 
-    printf("[RECEIVER ERROR] Could not inspect reconstructed container.\n");
-    goto transfer_finished;
-}
+    chunks_created = 1;
 
-long container_length = ftell(container);
+    /*
+       Reassemble SNGC chunks.
+    */
 
-fclose(container);
+    printf("\n[RECEIVER] Reassembling chunks...\n");
 
-if (container_length <= 0)
-{
-    printf("[RECEIVER ERROR] Invalid reconstructed container size.\n");
-    goto transfer_finished;
-}
-
-container_size = (uint64_t)container_length;
-
-/*
-   Decode original audio file.
-*/
-
-printf("\n[RECEIVER] Extracting original audio file...\n");
-
-if (decoder_extract_payload(
-    container_filename,
-    destination
-) != 0)
-{
-    printf("[RECEIVER ERROR] Audio extraction failed.\n");
-    goto transfer_finished;
-}
-
-output_created = 1;
-
-/*
-   Verify original file size.
-*/
-
-FILE *output_file = fopen(destination, "rb");
-
-if (output_file == NULL ||
-    fseek(output_file, 0, SEEK_END) != 0)
-{
-    if (output_file != NULL)
+    if (reassembler_combine_chunks(
+        output_prefix,
+        container_filename
+    ) != 0)
     {
-        fclose(output_file);
+        printf("[RECEIVER ERROR] Reassembly failed.\n");
+        goto transfer_finished;
     }
 
-    printf("[RECEIVER ERROR] Could not verify received file.\n");
-    if (output_created)
-{
-    remove(destination);
-    output_created = 0;
-}
-    goto transfer_finished;
-}
+    container_created = 1;
 
-long received_size = ftell(output_file);
+    /*
+       Decode original audio file.
+    */
 
-fclose(output_file);
+    printf("\n[RECEIVER] Extracting original audio file...\n");
 
-if (received_size < 0 ||
-    (uint64_t)received_size != incoming_file.file_size)
-{
-    printf("[RECEIVER ERROR] Received file size mismatch.\n");
-
-    if (output_created)
+    if (decoder_extract_payload(
+        container_filename,
+        destination
+    ) != 0)
     {
-        remove(destination);
-        output_created = 0;
+        printf("[RECEIVER ERROR] Audio extraction failed.\n");
+        goto transfer_finished;
     }
 
-    goto transfer_finished;
-}
+    output_created = 1;
 
-printf("\n====================================\n");
-printf("       TRANSFER COMPLETED\n");
-printf("====================================\n");
+    /*
+       Verify original file size.
+    */
 
-printf("[RECEIVER] Original audio file reconstructed.\n");
-printf("[RECEIVER] Saved to: %s\n", destination);
-printf("[RECEIVER] File size verified successfully.\n");
+    FILE *output_file = fopen(destination, "rb");
 
-result = 0;
+    if (output_file == NULL ||
+        fseek(output_file, 0, SEEK_END) != 0)
+    {
+        if (output_file != NULL)
+        {
+            fclose(output_file);
+        }
+
+        printf("[RECEIVER ERROR] Could not verify received file.\n");
+
+        if (output_created)
+        {
+            remove(destination);
+            output_created = 0;
+        }
+
+        goto transfer_finished;
+    }
+
+    long received_size = ftell(output_file);
+
+    fclose(output_file);
+
+    if (received_size < 0 ||
+        (uint64_t)received_size != incoming_file.file_size)
+    {
+        printf("[RECEIVER ERROR] Received file size mismatch.\n");
+
+        if (output_created)
+        {
+            remove(destination);
+            output_created = 0;
+        }
+
+        goto transfer_finished;
+    }
+
+    printf("\n====================================\n");
+    printf("       TRANSFER COMPLETED\n");
+    printf("====================================\n");
+
+    printf("[RECEIVER] Original audio file reconstructed.\n");
+    printf("[RECEIVER] Saved to: %s\n", destination);
+    printf("[RECEIVER] File size verified successfully.\n");
+
+    result = 0;
 
 transfer_finished:
 
-/*
-   Send final acknowledgement.
-*/
+    /*
+       Send final acknowledgement.
+    */
 
-if (transfer_accepted)
-{
-    unsigned char ack_status =
-        result == 0 ? TCP_ACK_SUCCESS : TCP_ACK_FAILURE;
-
-    if (tcp_send_ack(client_socket, ack_status) != 0)
+    if (transfer_accepted)
     {
-        printf("[RECEIVER ERROR] Could not send final ACK.\n");
-        result = 1;
+        unsigned char ack_status =
+            result == 0 ? TCP_ACK_SUCCESS : TCP_ACK_FAILURE;
+
+        if (tcp_send_ack(client_socket, ack_status) != 0)
+        {
+            printf("[RECEIVER ERROR] Could not send final ACK.\n");
+            result = 1;
+        }
     }
-}
 
-/*
-   Clean up temporary files.
-*/
+    /*
+       Clean up temporary files.
+    */
 
-   receiver_cleanup(
-    container_filename,
-    output_prefix,
-    container_size,
-    container_created,
-    chunks_created
-);
+    receiver_cleanup(
+        container_filename,
+        output_prefix,
+        received_chunk_count,
+        container_created,
+        chunks_created
+    );
 
 cleanup:
 
