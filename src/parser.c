@@ -137,19 +137,17 @@ if (detected_format == FORMAT_MP3)
         {
             // Encode original audio into SNGP container.
 
-            if (encoder_create_container(
-                    filename,
-                    output_filename,
-                    detected_format,
-                    &metadata) != 0)
+            if (encoder_create_container(filename, output_filename, detected_format, &metadata) != 0)
             {
-                printf("[ERROR] SNGP encoding failed.\n");
+              printf("[ERROR] SNGP encoding failed.\n");
+                return 1;
             }
         }
     }
     else
     {
-        printf("[METADATA] Extraction failed.\n");
+    printf("[METADATA] Extraction failed.\n");
+    return 1;
     }
 }
 
