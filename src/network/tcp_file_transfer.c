@@ -182,7 +182,7 @@ int tcp_receive_file(
     }
 
     // Create destination file.
-    FILE *file = fopen(output_filename, "wb");
+    FILE *file = fopen(output_filename, "wbx");
 
     if (file == NULL)
     {
