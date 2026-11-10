@@ -22,6 +22,8 @@ add_executable(
     src/checksum.c
     src/chunker.c
     src/reassembler.c
+    src/sender.c
+    src/receiver.c
 
     #Networking
     src/network/socket_utils.c
