@@ -33,7 +33,7 @@ The receiver ends up with the original audio file, not the intermediate `.sngp` 
 Requirements: Windows, MinGW GCC, CMake, Ninja.
 
 ```
-git clone https://github.com/itsqyp/cSongParsar.git
+git clone https://github.com/itsqyp/cSongParser.git
 cd cSongParsar
 cmake -S . -B build -G Ninja
 cmake --build build
