@@ -58,6 +58,34 @@ static int verify_files(const char *original, const char *reconstructed)
 }
 
 
+static int parse_port(
+    const char *port_text,
+    unsigned short *port
+)
+{
+    char *end_pointer;
+
+    unsigned long value = strtoul(
+        port_text,
+        &end_pointer,
+        10
+    );
+
+    if (port_text[0] == '\0' ||
+        *end_pointer != '\0' ||
+        value == 0 ||
+        value > 65535)
+    {
+        printf("[NETWORK ERROR] Invalid port number.\n");
+        return -1;
+    }
+
+    *port = (unsigned short)value;
+
+    return 0;
+}
+
+
 
 int main(int argc, char *argv[])
 {
