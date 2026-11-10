@@ -77,10 +77,14 @@ int chunker_create_chunks(
     uint64_t original_file_size;
     uint64_t remaining_bytes;
 
-    uint32_t total_chunks;
-    uint32_t chunk_index = 0;
+   uint32_t total_chunks;
+uint32_t chunk_index = 0;
+uint32_t created_chunks = 0;
 
-    char output_filename[512];
+int current_chunk_created = 0;
+
+char output_filename[512];
+char cleanup_filename[512];
 
     // Validate arguments.
     if (input_filename == NULL ||
@@ -163,13 +167,17 @@ int chunker_create_chunks(
         );
 
         // Open chunk output file.
-        output = fopen(output_filename, "wb");
+        output = fopen(output_filename, "wbx");
 
-        if (output == NULL)
-        {
-            printf("[CHUNKER ERROR] Could not create chunk file.\n");
-            goto cleanup;
-        }
+if (output == NULL)
+{
+    printf("[CHUNKER ERROR] Could not create chunk file.\n");
+    goto cleanup;
+}
+
+current_chunk_created = 1;
+
+      
 
         // Build chunk header.
       // Calculate SHA-256 of the current chunk payload.
@@ -232,15 +240,18 @@ int chunker_create_chunks(
         }
 
         // Close current chunk.
-        if (fclose(output) != 0)
-        {
-            output = NULL;
+if (fclose(output) != 0)
+{
+    output = NULL;
 
-            printf("[CHUNKER ERROR] Failed to finalize chunk.\n");
-            goto cleanup;
-        }
+    printf("[CHUNKER ERROR] Failed to finalize chunk.\n");
+    goto cleanup;
+}
 
-        output = NULL;
+output = NULL;
+
+current_chunk_created = 0;
+created_chunks++;
 
         printf("[CHUNKER] Created: %s (%u bytes)\n",
                output_filename,
@@ -259,10 +270,31 @@ int chunker_create_chunks(
 
 cleanup:
 
+    // Close the current chunk if it is still open.
     if (output != NULL)
     {
         fclose(output);
+        output = NULL;
+    }
+
+    // Remove the incomplete current chunk.
+    if (current_chunk_created)
+    {
         remove(output_filename);
+    }
+
+    // Remove previously completed chunks created by this operation.
+    for (uint32_t i = 0; i < created_chunks; i++)
+    {
+        snprintf(
+            cleanup_filename,
+            sizeof(cleanup_filename),
+            "%s.part%06u.sngc",
+            output_prefix,
+            i
+        );
+
+        remove(cleanup_filename);
     }
 
     if (input != NULL)
