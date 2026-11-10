@@ -193,7 +193,7 @@ if (checksum_sha256_file(input_filename, checksum) != 0)
 
     // Open destination container.
 
-    FILE *output = fopen(output_filename, "wb");
+    FILE *output = fopen(output_filename, "wbx");
 
     if (output == NULL)
     {

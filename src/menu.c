@@ -12,8 +12,11 @@ int menu_get_choice(void)
     printf("================================================\n");
     printf("               MAIN MENU\n");
     printf("================================================\n\n");
+    printf("================================================\n");
     printf("            Made By Abir Bro\n");
-
+    printf("================================================\n");
+    printf("\n");
+    
     printf("       1. Send Files\n");
     printf("       2. Receive Files\n");
     printf("       3. Exit\n\n");
