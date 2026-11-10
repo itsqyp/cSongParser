@@ -470,7 +470,8 @@ int tcp_send_chunks(
 }
 
 
-//* Receive multiple SNGC chunk files. */
+/* Receive multiple SNGC chunk files. */
+
 int tcp_receive_chunks(
     SOCKET socket,
     const char *output_prefix,
