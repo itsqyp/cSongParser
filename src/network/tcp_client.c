@@ -9,6 +9,34 @@
 
 
 
+
+static const char *get_connection_error_message(int error_code)
+{
+    switch (error_code)
+    {
+        case WSAECONNREFUSED:
+            return "Connection refused. Is the server running?";
+
+        case WSAETIMEDOUT:
+            return "Connection timed out.";
+
+        case WSAEHOSTUNREACH:
+            return "The server host is unreachable.";
+
+        case WSAENETUNREACH:
+            return "The network is unreachable.";
+
+        case WSAEADDRNOTAVAIL:
+            return "The requested address is unavailable.";
+
+        case WSAEHOSTDOWN:
+            return "The server host is down.";
+
+        default:
+            return "An unknown connection error occurred.";
+    }
+}
+
 int tcp_client_run(
     const char *server_ip,
     unsigned short port,
@@ -64,17 +92,22 @@ if (address_result == SOCKET_ERROR)
     /* Connect to server. */
     printf("[CLIENT] Connecting to %s:%u...\n", server_ip, port);
 
-    if (connect(
-        client_socket,
-        (struct sockaddr *)&server_address,
-        sizeof(server_address)
-    ) == SOCKET_ERROR)
-    {
-        printf("[CLIENT] Connection failed: %d\n", WSAGetLastError());
+   if (connect(
+    client_socket,
+    (struct sockaddr *)&server_address,
+    sizeof(server_address)
+) == SOCKET_ERROR)
+{
+    int error_code = WSAGetLastError();
 
-        closesocket(client_socket);
-        return -1;
-    }
+    printf("[CLIENT ERROR] %s\n",
+        get_connection_error_message(error_code));
+
+    printf("[CLIENT ERROR] Windows socket error: %d\n", error_code);
+
+    closesocket(client_socket);
+    return -1;
+}
 
     printf("[CLIENT] Connected successfully.\n");
 
