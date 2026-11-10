@@ -210,7 +210,7 @@ Requirements
 - Ninja
 - Visual Studio Code (recommended)
   Clone the Repository
-  git clone https://github.com/YOUR_USERNAME/cSongParsar.git
+  git clone https://github.com/itsqyp/cSongParsar.git
 
 Navigate into the project:
 cd cSongParsar
