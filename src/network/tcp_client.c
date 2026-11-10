@@ -4,6 +4,9 @@
 
 #include "tcp_client.h"
 #include "tcp_chunk_transfer.h"
+#include "tcp_ack.h"
+
+
 
 int tcp_client_run(
     const char *server_ip,
@@ -62,9 +65,31 @@ int tcp_client_run(
         return -1;
     }
 
-    printf("[CLIENT] All chunks transferred successfully.\n");
+    /* Wait for server acknowledgment. */
+printf("[CLIENT] Waiting for server acknowledgment...\n");
+
+int acknowledgment = tcp_receive_ack(client_socket);
+
+if (acknowledgment == TCP_ACK_FAILURE)
+{
+    printf("[CLIENT] Server rejected the transfer.\n");
 
     closesocket(client_socket);
+    return -1;
+}
 
-    return 0;
+if (acknowledgment != TCP_ACK_SUCCESS)
+{
+    printf("[CLIENT] Invalid or missing server acknowledgment.\n");
+
+    closesocket(client_socket);
+    return -1;
+}
+
+printf("[CLIENT] Server confirmed successful transfer.\n");
+printf("[CLIENT] Transfer completed successfully.\n");
+
+closesocket(client_socket);
+
+return 0;
 }
