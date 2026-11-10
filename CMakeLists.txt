@@ -13,6 +13,7 @@ set(CMAKE_C_EXTENSIONS OFF)
 add_executable(
     CSongParser
     src/main.c
+    src/menu.c
     src/parser.c
     src/format.c
     src/metadata.c
