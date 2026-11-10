@@ -29,6 +29,7 @@ add_executable(
     src/network/tcp_io.c
     src/network/tcp_file_transfer.c
     src/network/tcp_chunk_transfer.c
+    src/network/tcp_ack.c
 )
 
 target_link_libraries(
