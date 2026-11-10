@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include <winsock2.h>
+#include <ws2tcpip.h>
 
 #include "tcp_client.h"
 #include "tcp_chunk_transfer.h"
@@ -16,7 +17,32 @@ int tcp_client_run(
 {
     SOCKET client_socket = INVALID_SOCKET;
 
-    struct sockaddr_in server_address;
+    struct sockaddr_in server_address = {0};
+
+    /* Validate server IPv4 address. */
+if (server_ip == NULL || server_ip[0] == '\0')
+{
+    printf("[CLIENT ERROR] Server IP address is empty.\n");
+    return -1;
+}
+
+int address_result = InetPtonA(
+    AF_INET,
+    server_ip,
+    &server_address.sin_addr
+);
+
+if (address_result == 0)
+{
+    printf("[CLIENT ERROR] Invalid IPv4 address: %s\n", server_ip);
+    return -1;
+}
+
+if (address_result == SOCKET_ERROR)
+{
+    printf("[CLIENT ERROR] IPv4 validation failed: %d\n", WSAGetLastError());
+    return -1;
+}
 
     /* Create TCP socket. */
     client_socket = socket(
@@ -34,7 +60,6 @@ int tcp_client_run(
     /* Configure server address. */
     server_address.sin_family = AF_INET;
     server_address.sin_port = htons(port);
-    server_address.sin_addr.s_addr = inet_addr(server_ip);
 
     /* Connect to server. */
     printf("[CLIENT] Connecting to %s:%u...\n", server_ip, port);
