@@ -119,10 +119,17 @@ int main(int argc, char *argv[])
 // Start TCP server.
 if (argc >= 2 && strcmp(argv[1], "--server") == 0)
 {
-    if (argc != 3)
+    if (argc != 4)
     {
         printf("\nUsage:\n");
-        printf("CSongParser --server <output-prefix>\n");
+        printf("CSongParser --server <port> <output-prefix>\n");
+        return 1;
+    }
+
+    unsigned short port;
+
+    if (parse_port(argv[2], &port) != 0)
+    {
         return 1;
     }
 
@@ -131,19 +138,29 @@ if (argc >= 2 && strcmp(argv[1], "--server") == 0)
         return 1;
     }
 
-    int result = tcp_server_run(5000, argv[2]);
+    int result = tcp_server_run(
+        port,
+        argv[3]
+    );
 
     network_cleanup();
 
     return result == 0 ? 0 : 1;
 }
 // Start TCP client.
-
 if (argc >= 2 && strcmp(argv[1], "--client") == 0)
 {
-    if (argc != 3)
+    if (argc != 5)
     {
-        printf("Usage: CSongParser --client <input-prefix>\n");
+        printf("\nUsage:\n");
+        printf("CSongParser --client <server-ip> <port> <input-prefix>\n");
+        return 1;
+    }
+
+    unsigned short port;
+
+    if (parse_port(argv[3], &port) != 0)
+    {
         return 1;
     }
 
@@ -153,9 +170,9 @@ if (argc >= 2 && strcmp(argv[1], "--client") == 0)
     }
 
     int result = tcp_client_run(
-        "127.0.0.1",
-        5000,
-        argv[2]
+        argv[2],
+        port,
+        argv[4]
     );
 
     network_cleanup();
@@ -246,8 +263,8 @@ if (argc >= 2 && strcmp(argv[1], "--reassemble") == 0)
         printf("CSongParser --verify <original-file> <reconstructed-file>\n");
         printf("CSongParser --chunk <input.sngp> <output-prefix> <chunk-size>\n");
         printf("CSongParser --reassemble <input-prefix> <output.sngp>\n");
-        printf("CSongParser --server <output-prefix>\n");
-        printf("CSongParser --client <input-prefix> <total-chunks>\n");
+        printf("CSongParser --server <port> <output-prefix>\n");
+        printf("CSongParser --client <server-ip> <port> <input-prefix>\n");
         printf("CSongParser --net-test\n");
         return 1;
     }
