@@ -3,6 +3,7 @@
 
 #include "tcp_server.h"
 #include "tcp_chunk_transfer.h"
+#include "tcp_ack.h"
 
 #define SERVER_BACKLOG 5
 
@@ -75,15 +76,26 @@ int tcp_server_run(
     printf("[SERVER] Client connected.\n");
 
     /* Receive all binary chunks. */
-    if (tcp_receive_chunks(client_socket, output_prefix) != 0)
-    {
-        printf("[SERVER] Chunk transfer failed.\n");
-        goto cleanup;
-    }
+if (tcp_receive_chunks(client_socket, output_prefix) != 0)
+{
+    printf("[SERVER] Chunk transfer failed.\n");
 
-    printf("[SERVER] All chunks received successfully.\n");
+    /* Notify client about the failure. */
+    tcp_send_ack(client_socket, TCP_ACK_FAILURE);
 
-    result = 0;
+    goto cleanup;
+}
+
+printf("[SERVER] All chunks received successfully.\n");
+
+/* Notify client about successful reception. */
+if (tcp_send_ack(client_socket, TCP_ACK_SUCCESS) != 0)
+{
+    printf("[SERVER] Failed to send acknowledgment.\n");
+    goto cleanup;
+}
+
+result = 0;
 
 cleanup:
 
