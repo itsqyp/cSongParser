@@ -343,18 +343,34 @@ int output_created = 0;
    Prepare temporary file paths.
 */
 
-if (snprintf(
+int prefix_path_length = snprintf(
     output_prefix,
     sizeof(output_prefix),
     "%s.incoming",
     destination
-) >= (int)sizeof(output_prefix) ||
-    snprintf(
-        container_filename,
-        sizeof(container_filename),
-        "%s.incoming.sngp",
-        destination
-    ) >= (int)sizeof(container_filename))
+);
+
+int container_path_length = snprintf(
+    container_filename,
+    sizeof(container_filename),
+    "%s.incoming.sngp",
+    destination
+);
+
+if (prefix_path_length < 0 ||
+    prefix_path_length >= (int)sizeof(output_prefix) ||
+    container_path_length < 0 ||
+    container_path_length >= (int)sizeof(container_filename))
+{
+    printf("[RECEIVER ERROR] Destination path is too long.\n");
+
+    tcp_send_handshake_response(
+        client_socket,
+        TCP_HANDSHAKE_REJECT
+    );
+
+    goto cleanup;
+}
 {
     printf("[RECEIVER ERROR] Destination path is too long.\n");
 
