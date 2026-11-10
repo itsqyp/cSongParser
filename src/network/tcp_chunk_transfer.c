@@ -191,6 +191,30 @@ static int build_chunk_filename(
     return 0;
 }
 
+/* Remove chunk files successfully created by this reception. */
+static void cleanup_received_chunks(
+    const char *output_prefix,
+    uint32_t received_count
+)
+{
+    for (uint32_t i = 0; i < received_count; i++)
+    {
+        char filename[FILENAME_BUFFER_SIZE];
+
+        if (build_chunk_filename(
+            filename,
+            sizeof(filename),
+            output_prefix,
+            i
+        ) != 0)
+        {
+            continue;
+        }
+
+        remove(filename);
+    }
+}
+
 
 /* Validate the physical size of a chunk file. */
 static int validate_chunk_file_size(
