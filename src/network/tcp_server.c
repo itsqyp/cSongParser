@@ -4,6 +4,8 @@
 #include "tcp_server.h"
 #include "tcp_chunk_transfer.h"
 #include "tcp_ack.h"
+#include "reassembler.h"
+
 
 #define SERVER_BACKLOG 5
 
@@ -12,6 +14,12 @@ int tcp_server_run(
     const char *output_prefix
 )
 {
+
+    if (output_prefix == NULL || output_prefix[0] == '\0')
+{
+    printf("[SERVER] Invalid output prefix.\n");
+    return -1;
+}
     SOCKET server_socket = INVALID_SOCKET;
     SOCKET client_socket = INVALID_SOCKET;
 
@@ -20,6 +28,8 @@ int tcp_server_run(
 
     int client_address_length = sizeof(client_address);
     int result = -1;
+
+    char output_filename[512];
 
     /* Create TCP socket. */
     server_socket = socket(
@@ -75,12 +85,12 @@ int tcp_server_run(
 
     printf("[SERVER] Client connected.\n");
 
-    /* Receive all binary chunks. */
+
+/* Receive all binary chunks. */
 if (tcp_receive_chunks(client_socket, output_prefix) != 0)
 {
-    printf("[SERVER] Chunk transfer failed.\n");
+    printf("[SERVER] Chunk reception failed.\n");
 
-    /* Notify client about the failure. */
     tcp_send_ack(client_socket, TCP_ACK_FAILURE);
 
     goto cleanup;
@@ -88,7 +98,42 @@ if (tcp_receive_chunks(client_socket, output_prefix) != 0)
 
 printf("[SERVER] All chunks received successfully.\n");
 
-/* Notify client about successful reception. */
+/* Generate reconstructed SNGP filename. */
+int filename_length = snprintf(
+    output_filename,
+    sizeof(output_filename),
+    "%s.sngp",
+    output_prefix
+);
+
+if (filename_length < 0 ||
+    (size_t)filename_length >= sizeof(output_filename))
+{
+    printf("[SERVER] Output filename is too long.\n");
+
+    tcp_send_ack(client_socket, TCP_ACK_FAILURE);
+
+    goto cleanup;
+}
+
+/* Reassemble and validate received chunks. */
+printf("[SERVER] Starting chunk reassembly...\n");
+
+if (reassembler_combine_chunks(
+    output_prefix,
+    output_filename
+) != 0)
+{
+    printf("[SERVER] Chunk reassembly or validation failed.\n");
+
+    tcp_send_ack(client_socket, TCP_ACK_FAILURE);
+
+    goto cleanup;
+}
+
+printf("[SERVER] SNGP container reconstructed successfully.\n");
+
+/* Send success acknowledgment only after validation. */
 if (tcp_send_ack(client_socket, TCP_ACK_SUCCESS) != 0)
 {
     printf("[SERVER] Failed to send acknowledgment.\n");
