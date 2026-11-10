@@ -130,28 +130,43 @@ static int receiver_display_file_info(const TcpFileInfo *info)
 static void receiver_cleanup(
     const char *container_filename,
     const char *output_prefix,
-    uint64_t container_size
+    uint64_t container_size,
+    int container_created,
+    int chunks_created
 )
 {
-    remove(container_filename);
-
-    uint64_t total_chunks =
-        container_size / DEFAULT_CHUNK_SIZE +
-        (container_size % DEFAULT_CHUNK_SIZE != 0);
-
-    for (uint64_t i = 0; i < total_chunks; i++)
+    /* Delete only the container created by this transfer. */
+    if (container_created)
     {
-        char chunk_filename[INPUT_SIZE];
+        remove(container_filename);
+    }
 
-        snprintf(
-            chunk_filename,
-            sizeof(chunk_filename),
-            "%s.part%06llu.sngc",
-            output_prefix,
-            (unsigned long long)i
-        );
+    /* Delete chunks only if this transfer created them. */
+    if (chunks_created)
+    {
+        uint64_t total_chunks =
+            container_size / DEFAULT_CHUNK_SIZE +
+            (container_size % DEFAULT_CHUNK_SIZE != 0);
 
-        remove(chunk_filename);
+        for (uint64_t i = 0; i < total_chunks; i++)
+        {
+            char chunk_filename[INPUT_SIZE];
+
+            int length = snprintf(
+                chunk_filename,
+                sizeof(chunk_filename),
+                "%s.part%06llu.sngc",
+                output_prefix,
+                (unsigned long long)i
+            );
+
+            if (length < 0 || length >= (int)sizeof(chunk_filename))
+            {
+                continue;
+            }
+
+            remove(chunk_filename);
+        }
     }
 }
 
@@ -174,7 +189,12 @@ int receiver_run(void)
 char output_prefix[INPUT_SIZE];
 
 uint64_t container_size = 0;
+
 int transfer_accepted = 0;
+
+int chunks_created = 0;
+int container_created = 0;
+int output_created = 0;
 
     printf("\n====================================\n");
     printf("          FILE RECEIVER\n");
@@ -379,6 +399,8 @@ if (tcp_receive_chunks(
     goto transfer_finished;
 }
 
+chunks_created = 1;
+
 /*
    Reassemble SNGC chunks.
 */
@@ -393,6 +415,8 @@ if (reassembler_combine_chunks(
     printf("[RECEIVER ERROR] Reassembly failed.\n");
     goto transfer_finished;
 }
+
+container_created = 1;
 
 /*
    Determine reconstructed container size.
@@ -439,6 +463,8 @@ if (decoder_extract_payload(
     goto transfer_finished;
 }
 
+output_created = 1;
+
 /*
    Verify original file size.
 */
@@ -454,7 +480,11 @@ if (output_file == NULL ||
     }
 
     printf("[RECEIVER ERROR] Could not verify received file.\n");
+    if (output_created)
+{
     remove(destination);
+    output_created = 0;
+}
     goto transfer_finished;
 }
 
@@ -466,7 +496,13 @@ if (received_size < 0 ||
     (uint64_t)received_size != incoming_file.file_size)
 {
     printf("[RECEIVER ERROR] Received file size mismatch.\n");
-    remove(destination);
+
+    if (output_created)
+    {
+        remove(destination);
+        output_created = 0;
+    }
+
     goto transfer_finished;
 }
 
@@ -502,14 +538,13 @@ if (transfer_accepted)
    Clean up temporary files.
 */
 
-if (container_size > 0)
-{
-    receiver_cleanup(
-        container_filename,
-        output_prefix,
-        container_size
-    );
-}
+   receiver_cleanup(
+    container_filename,
+    output_prefix,
+    container_size,
+    container_created,
+    chunks_created
+);
 
 cleanup:
 

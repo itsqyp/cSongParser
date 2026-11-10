@@ -288,23 +288,29 @@ TcpFileInfo file_info;
        Prepare temporary filenames.
     */
 
-    if (snprintf(
-        container_filename,
-        sizeof(container_filename),
-        "%s.transfer.sngp",
-        input_filename
-    ) >= (int)sizeof(container_filename) ||
-        snprintf(
-            output_prefix,
-            sizeof(output_prefix),
-            "%s.transfer",
-            input_filename
-        ) >= (int)sizeof(output_prefix))
-    {
-        printf("[SENDER ERROR] Input file path is too long.\n");
-        return 1;
-    }
+    int container_path_length = snprintf(
+    container_filename,
+    sizeof(container_filename),
+    "%s.transfer.sngp",
+    input_filename
+);
 
+int prefix_path_length = snprintf(
+    output_prefix,
+    sizeof(output_prefix),
+    "%s.transfer",
+    input_filename
+);
+
+if (container_path_length < 0 ||
+    container_path_length >= (int)sizeof(container_filename) ||
+    prefix_path_length < 0 ||
+    prefix_path_length >= (int)sizeof(output_prefix))
+{
+    printf("[SENDER ERROR] Input file path is too long.\n");
+    return 1;
+}
+ 
     /*
        Encode original MP3 into SNGP.
     */
@@ -348,16 +354,16 @@ TcpFileInfo file_info;
     long container_length = ftell(container);
     fclose(container);
 
-   if (container_length <= 0)
+  if (container_length <= 0)
 {
     sender_cleanup(
         container_filename,
         output_prefix,
-        container_size,
+        0,
         container_created,
         chunks_created
     );
-
+printf("[SENDER ERROR] Invalid container size.\n");
     return 1;
 }
 
