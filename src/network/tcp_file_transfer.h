@@ -1,16 +1,16 @@
-#ifndef TCP_CHUNK_TRANSFER_H
-#define TCP_CHUNK_TRANSFER_H
+#ifndef TCP_FILE_TRANSFER_H
+#define TCP_FILE_TRANSFER_H
 
 #include <winsock2.h>
 
-int tcp_send_chunks(
+int tcp_send_file(
     SOCKET socket,
-    const char *input_prefix
+    const char *filename
 );
 
-int tcp_receive_chunks(
+int tcp_receive_file(
     SOCKET socket,
-    const char *output_prefix
+    const char *output_filename
 );
 
 #endif

@@ -110,30 +110,12 @@ if (argc >= 2 && strcmp(argv[1], "--server") == 0)
     return result == 0 ? 0 : 1;
 }
 // Start TCP client.
-if (strcmp(argv[1], "--client") == 0)
+
+if (argc >= 2 && strcmp(argv[1], "--client") == 0)
 {
-    if (argc != 4)
+    if (argc != 3)
     {
-        printf("Usage: CSongParser --client <input-prefix> <total-chunks>\n");
-        return 1;
-    }
-
-    char *end_pointer;
-
-    unsigned long total_chunks = strtoul(
-        argv[3],
-        &end_pointer,
-        10
-    );
-
-    if (
-        argv[3][0] == '\0' ||
-        *end_pointer != '\0' ||
-        total_chunks == 0 ||
-        total_chunks > UINT32_MAX
-    )
-    {
-        printf("[CLIENT] Invalid chunk count.\n");
+        printf("Usage: CSongParser --client <input-prefix>\n");
         return 1;
     }
 
@@ -145,8 +127,7 @@ if (strcmp(argv[1], "--client") == 0)
     int result = tcp_client_run(
         "127.0.0.1",
         5000,
-        argv[2],
-        (uint32_t)total_chunks
+        argv[2]
     );
 
     network_cleanup();

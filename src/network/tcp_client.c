@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <winsock2.h>
 
@@ -7,8 +8,7 @@
 int tcp_client_run(
     const char *server_ip,
     unsigned short port,
-    const char *input_prefix,
-    uint32_t total_chunks
+    const char *input_prefix
 )
 {
     SOCKET client_socket = INVALID_SOCKET;
@@ -50,11 +50,10 @@ int tcp_client_run(
 
     printf("[CLIENT] Connected successfully.\n");
 
-    /* Send multiple chunks. */
+    /* Automatically discover and send chunks. */
     if (tcp_send_chunks(
         client_socket,
-        input_prefix,
-        total_chunks
+        input_prefix
     ) != 0)
     {
         printf("[CLIENT] Chunk transfer failed.\n");
