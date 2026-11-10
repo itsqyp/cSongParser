@@ -470,17 +470,22 @@ int tcp_send_chunks(
 }
 
 
-/* Receive multiple SNGC chunk files. */
+//* Receive multiple SNGC chunk files. */
 int tcp_receive_chunks(
     SOCKET socket,
-    const char *output_prefix
+    const char *output_prefix,
+    uint32_t *received_chunk_count
 )
 {
-    if (output_prefix == NULL || output_prefix[0] == '\0')
+    if (output_prefix == NULL ||
+        output_prefix[0] == '\0' ||
+        received_chunk_count == NULL)
     {
-        printf("[CHUNK TRANSFER ERROR] Invalid output prefix.\n");
+        printf("[CHUNK TRANSFER ERROR] Invalid receive parameters.\n");
         return -1;
     }
+
+    *received_chunk_count = 0;
 
     /* Receive total chunk count. */
     unsigned char count_header[4];
@@ -502,6 +507,8 @@ int tcp_receive_chunks(
 
     printf("[CHUNK TRANSFER] Expecting %u chunks.\n", total_chunks);
 
+    uint32_t received_count = 0;
+
     /* Receive chunks sequentially. */
     for (uint32_t i = 0; i < total_chunks; i++)
     {
@@ -514,6 +521,11 @@ int tcp_receive_chunks(
             i
         ) != 0)
         {
+            cleanup_received_chunks(
+                output_prefix,
+                received_count
+            );
+
             return -1;
         }
 
@@ -524,9 +536,19 @@ int tcp_receive_chunks(
         if (tcp_receive_file(socket, filename) != 0)
         {
             printf("[CHUNK TRANSFER ERROR] Failed to receive chunk %u.\n", i);
+
+            cleanup_received_chunks(
+                output_prefix,
+                received_count
+            );
+
             return -1;
         }
+
+        received_count++;
     }
+
+    *received_chunk_count = received_count;
 
     printf("[CHUNK TRANSFER] All chunks received successfully.\n");
 
