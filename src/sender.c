@@ -167,28 +167,43 @@ static int sender_validate_file(
 static void sender_cleanup(
     const char *container_filename,
     const char *output_prefix,
-    uint64_t container_size
+    uint64_t container_size,
+    int container_created,
+    int chunks_created
 )
 {
-    remove(container_filename);
-
-    uint64_t total_chunks =
-        container_size / DEFAULT_CHUNK_SIZE +
-        (container_size % DEFAULT_CHUNK_SIZE != 0);
-
-    for (uint64_t i = 0; i < total_chunks; i++)
+    /* Remove only the container created by this operation. */
+    if (container_created)
     {
-        char chunk_filename[INPUT_SIZE];
+        remove(container_filename);
+    }
 
-        snprintf(
-            chunk_filename,
-            sizeof(chunk_filename),
-            "%s.part%06llu.sngc",
-            output_prefix,
-            (unsigned long long)i
-        );
+    /* Remove chunks only if this operation created them successfully. */
+    if (chunks_created)
+    {
+        uint64_t total_chunks =
+            container_size / DEFAULT_CHUNK_SIZE +
+            (container_size % DEFAULT_CHUNK_SIZE != 0);
 
-        remove(chunk_filename);
+        for (uint64_t i = 0; i < total_chunks; i++)
+        {
+            char chunk_filename[INPUT_SIZE];
+
+            int length = snprintf(
+                chunk_filename,
+                sizeof(chunk_filename),
+                "%s.part%06llu.sngc",
+                output_prefix,
+                (unsigned long long)i
+            );
+
+            if (length < 0 || length >= (int)sizeof(chunk_filename))
+            {
+                continue;
+            }
+
+            remove(chunk_filename);
+        }
     }
 }
 
@@ -211,8 +226,12 @@ int sender_run(void)
     AudioMetadata metadata;
 
     uint64_t file_size;
+uint64_t container_size = 0;
 
-    TcpFileInfo file_info;
+int container_created = 0;
+int chunks_created = 0;
+
+TcpFileInfo file_info;
 
     struct sockaddr_in server_address;
 
@@ -302,6 +321,7 @@ int sender_run(void)
         printf("[SENDER ERROR] Encoding failed.\n");
         return 1;
     }
+    container_created = 1;
 
     FILE *container = fopen(container_filename, "rb");
 
@@ -313,7 +333,13 @@ int sender_run(void)
             fclose(container);
         }
 
-        remove(container_filename);
+       sender_cleanup(
+    container_filename,
+    output_prefix,
+    container_size,
+    container_created,
+    chunks_created
+);
 
         printf("[SENDER ERROR] Could not inspect container.\n");
         return 1;
@@ -322,13 +348,20 @@ int sender_run(void)
     long container_length = ftell(container);
     fclose(container);
 
-    if (container_length <= 0)
-    {
-        remove(container_filename);
-        return 1;
-    }
+   if (container_length <= 0)
+{
+    sender_cleanup(
+        container_filename,
+        output_prefix,
+        container_size,
+        container_created,
+        chunks_created
+    );
 
-    uint64_t container_size = (uint64_t)container_length;
+    return 1;
+}
+
+    container_size = (uint64_t)container_length;
 
     /*
        Create SNGC chunks.
@@ -336,20 +369,24 @@ int sender_run(void)
 
     printf("\n[SENDER] Creating transfer chunks...\n");
 
-    if (chunker_create_chunks(
+   if (chunker_create_chunks(
+    container_filename,
+    output_prefix,
+    DEFAULT_CHUNK_SIZE
+) != 0)
+{
+    sender_cleanup(
         container_filename,
         output_prefix,
-        DEFAULT_CHUNK_SIZE
-    ) != 0)
-    {
-        sender_cleanup(
-            container_filename,
-            output_prefix,
-            container_size
-        );
+        container_size,
+        container_created,
+        chunks_created
+    );
 
-        return 1;
-    }
+    return 1;
+}
+
+chunks_created = 1;
 
     /*
        Initialize Winsock.
@@ -357,11 +394,13 @@ int sender_run(void)
 
     if (network_initialize() != 0)
     {
-        sender_cleanup(
-            container_filename,
-            output_prefix,
-            container_size
-        );
+       sender_cleanup(
+    container_filename,
+    output_prefix,
+    container_size,
+    container_created,
+    chunks_created
+);
 
         return 1;
     }
@@ -514,11 +553,13 @@ cleanup:
         network_cleanup();
     }
 
-    sender_cleanup(
-        container_filename,
-        output_prefix,
-        container_size
-    );
+  sender_cleanup(
+    container_filename,
+    output_prefix,
+    container_size,
+    container_created,
+    chunks_created
+);
 
     return result;
 }
