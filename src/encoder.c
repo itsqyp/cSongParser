@@ -135,125 +135,116 @@ memcpy(
 // CREATE SNGP CONTAINER
 // ============================================
 
+
 int encoder_create_container(
     const char *input_filename,
     const char *output_filename,
     AudioFormat format,
     const AudioMetadata *metadata
-   
 )
 {
-
     unsigned char checksum[SHA256_HASH_SIZE];
+
+    FILE *input = NULL;
+    FILE *output = NULL;
+
+    int result = 1;
+    int output_created = 0;
+
+    uint64_t total_copied = 0;
+    uint64_t file_size = 0;
+
     if (input_filename == NULL || output_filename == NULL)
     {
+        printf("[ENCODER ERROR] Invalid filename.\n");
         return 1;
     }
 
-    // Open original audio file.
+    /* Open original audio file. */
 
-    FILE *input = fopen(input_filename, "rb");
+    input = fopen(input_filename, "rb");
 
     if (input == NULL)
     {
         perror("[ENCODER] Could not open input file");
-        return 1;
+        goto cleanup;
     }
 
-    // Determine original file size.
+    /* Determine original file size using 64-bit positioning. */
 
-    if (fseek(input, 0, SEEK_END) != 0)
+    if (_fseeki64(input, 0, SEEK_END) != 0)
     {
-        fclose(input);
-        return 1;
+        perror("[ENCODER] Failed to seek input file");
+        goto cleanup;
     }
 
-    long file_size = ftell(input);
+    __int64 size = _ftelli64(input);
 
-    if (file_size < 0)
+    if (size < 0)
     {
-        fclose(input);
-        return 1;
+        perror("[ENCODER] Failed to determine file size");
+        goto cleanup;
     }
 
-  if (fseek(input, 0, SEEK_SET) != 0)
-{
-    fclose(input);
-    return 1;
-}
+    file_size = (uint64_t)size;
 
-    // Calculate SHA-256 of the original audio payload.
-if (checksum_sha256_file(input_filename, checksum) != 0)
-{
-    printf("[ENCODER ERROR] Failed to calculate SHA-256.\n");
-    fclose(input);
-    return 1;
-}
+    if (_fseeki64(input, 0, SEEK_SET) != 0)
+    {
+        perror("[ENCODER] Failed to rewind input file");
+        goto cleanup;
+    }
 
+    /* Calculate SHA-256 of the original audio payload. */
 
-    // Open destination container.
+    if (checksum_sha256_file(input_filename, checksum) != 0)
+    {
+        printf("[ENCODER ERROR] Failed to calculate SHA-256.\n");
+        goto cleanup;
+    }
 
-    FILE *output = fopen(output_filename, "wbx");
+    /* Create destination container without overwriting existing files. */
+
+    output = fopen(output_filename, "wbx");
 
     if (output == NULL)
     {
         perror("[ENCODER] Could not create output file");
-        fclose(input);
-        return 1;
+        goto cleanup;
     }
 
-    // Build header.
+    output_created = 1;
+
+    /* Build SNGP header. */
 
     unsigned char header[SNGP_HEADER_SIZE];
-
-//     if (checksum_sha256_file(input_filename, checksum) != 0)
-// {
-//     printf("[ENCODER ERROR] Failed to calculate SHA-256.\n");
-//     fclose(input);
-//     fclose(output);
-//     remove(output_filename);
-//     return -1;
-// }
 
     build_header(
         header,
         format,
-        (uint64_t)file_size,
+        file_size,
         metadata,
         checksum
-        
     );
 
-    // Write header.
+    /* Write header. */
 
     if (fwrite(header, 1, sizeof(header), output) != sizeof(header))
     {
         perror("[ENCODER] Failed to write header");
-
-        fclose(input);
-        fclose(output);
-
-        return 1;
+        goto cleanup;
     }
 
-    // Copy original audio bytes.
+    /* Copy original audio payload. */
 
     unsigned char buffer[4096];
-
     size_t bytes_read;
-
-    uint64_t total_copied = 0;
 
     while ((bytes_read = fread(buffer, 1, sizeof(buffer), input)) > 0)
     {
         if (fwrite(buffer, 1, bytes_read, output) != bytes_read)
         {
             perror("[ENCODER] Failed to write payload");
-
-            fclose(input);
-            fclose(output);
-
-            return 1;
+            goto cleanup;
         }
 
         total_copied += bytes_read;
@@ -262,29 +253,42 @@ if (checksum_sha256_file(input_filename, checksum) != 0)
     if (ferror(input))
     {
         perror("[ENCODER] Failed to read input file");
-
-        fclose(input);
-        fclose(output);
-
-        return 1;
+        goto cleanup;
     }
 
-    // Close files and verify close errors.
+    /* Verify copied payload size. */
 
-    int input_error = fclose(input);
-    int output_error = fclose(output);
-
-    if (input_error != 0 || output_error != 0)
+    if (total_copied != file_size)
     {
-        printf("[ENCODER] Failed to finalize container.\n");
-        return 1;
+        printf("[ENCODER ERROR] Payload size verification failed.\n");
+        goto cleanup;
     }
 
-    if (total_copied != (uint64_t)file_size)
+    /* Close input and check for errors. */
+
+    if (fclose(input) != 0)
     {
-        printf("[ENCODER] Payload size verification failed.\n");
-        return 1;
+        input = NULL;
+        perror("[ENCODER] Failed to close input file");
+        goto cleanup;
     }
+
+    input = NULL;
+
+    /* Finalize output container. */
+
+    int close_result = fclose(output);
+    output = NULL;
+
+    if (close_result != 0)
+    {
+        perror("[ENCODER] Failed to finalize container");
+        goto cleanup;
+    }
+
+    /* Everything succeeded. */
+
+    result = 0;
 
     printf("\n====================================\n");
     printf("         SNGP ENCODER               \n");
@@ -301,5 +305,34 @@ if (checksum_sha256_file(input_filename, checksum) != 0)
 
     printf("\n[ENCODER] Container created successfully.\n");
 
-    return 0;
+cleanup:
+
+    if (input != NULL)
+    {
+        fclose(input);
+    }
+
+    if (output != NULL)
+    {
+        fclose(output);
+    }
+
+    /*
+     * Only remove the output if this invocation successfully
+     * created it. Never delete a pre-existing container.
+     */
+
+    if (result != 0 && output_created)
+    {
+        if (remove(output_filename) != 0)
+        {
+            perror("[ENCODER] Failed to remove incomplete container");
+        }
+        else
+        {
+            printf("[ENCODER] Incomplete container removed.\n");
+        }
+    }
+
+    return result;
 }
