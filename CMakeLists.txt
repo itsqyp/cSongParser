@@ -10,6 +10,11 @@ set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
+# OpenSSL configuration
+set(OPENSSL_ROOT_DIR "C:/msys64/ucrt64")
+
+find_package(OpenSSL 3.0 REQUIRED COMPONENTS SSL Crypto)
+
 add_executable(
     CSongParser
     src/main.c
@@ -41,6 +46,8 @@ target_link_libraries(
     PRIVATE
         bcrypt
         ws2_32
+        OpenSSL::SSL
+        OpenSSL::Crypto
 )
 
 target_include_directories(
