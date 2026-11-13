@@ -39,6 +39,9 @@ add_executable(
     src/network/tcp_chunk_transfer.c
     src/network/tcp_ack.c
     src/network/tcp_handshake.c
+
+    #TLS
+    src/network/tls_context.c
 )
 
 target_link_libraries(
