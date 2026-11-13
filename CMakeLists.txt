@@ -42,6 +42,7 @@ add_executable(
 
     #TLS
     src/network/tls_context.c
+    src/network/tls_client.c
 )
 
 target_link_libraries(
