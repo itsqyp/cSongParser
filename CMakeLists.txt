@@ -44,6 +44,7 @@ add_executable(
     src/network/tls_context.c
     src/network/tls_client.c
     src/network/tls_server.c
+    src/network/tls_io.c
 )
 
 target_link_libraries(
