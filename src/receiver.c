@@ -317,6 +317,24 @@ int receiver_run(void)
     }
 
     printf("\n[RECEIVER] Sender connected!\n");
+        /*
+       Establish secure TLS connection.
+    */
+
+    printf("[RECEIVER] Starting TLS handshake...\n");
+
+    tls_connection = tls_server_accept(
+        tls_context,
+        client_socket
+    );
+
+    if (tls_connection == NULL)
+    {
+        printf("[RECEIVER ERROR] TLS handshake failed.\n");
+        goto cleanup;
+    }
+
+    printf("[RECEIVER] Secure TLS connection established.\n");
 
     /*
        Receive sender handshake.
