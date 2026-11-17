@@ -568,14 +568,28 @@ transfer_finished:
 
 cleanup:
 
+    if (tls_connection != NULL)
+    {
+        tls_server_disconnect(tls_connection);
+        tls_connection = NULL;
+    }
+
     if (client_socket != INVALID_SOCKET)
     {
         closesocket(client_socket);
+        client_socket = INVALID_SOCKET;
     }
 
     if (server_socket != INVALID_SOCKET)
     {
         closesocket(server_socket);
+        server_socket = INVALID_SOCKET;
+    }
+
+    if (tls_context != NULL)
+    {
+        tls_destroy_context(tls_context);
+        tls_context = NULL;
     }
 
     if (winsock_initialized)
