@@ -456,11 +456,11 @@ int tcp_send_chunks(
                i + 1,
                total_chunks);
 
-        if (tcp_send_file(socket, filename) != 0)
-        {
-            printf("[CHUNK TRANSFER ERROR] Failed to send chunk %u.\n", i);
-            return -1;
-        }
+       if (tcp_send_file(ssl, filename) != 0)
+{
+    printf("[CHUNK TRANSFER ERROR] Failed to send chunk %u.\n", i);
+    return -1;
+}
     }
 
     printf("[CHUNK TRANSFER] All chunks sent successfully.\n");
@@ -533,17 +533,17 @@ int tcp_receive_chunks(
                i + 1,
                total_chunks);
 
-        if (tcp_receive_file(socket, filename) != 0)
-        {
-            printf("[CHUNK TRANSFER ERROR] Failed to receive chunk %u.\n", i);
+       if (tcp_receive_file(ssl, filename) != 0)
+{
+    printf("[CHUNK TRANSFER ERROR] Failed to receive chunk %u.\n", i);
 
-            cleanup_received_chunks(
-                output_prefix,
-                received_count
-            );
+    cleanup_received_chunks(
+        output_prefix,
+        received_count
+    );
 
-            return -1;
-        }
+    return -1;
+}
 
         received_count++;
     }
