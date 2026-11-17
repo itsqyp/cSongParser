@@ -17,6 +17,8 @@
 #include "network/tcp_handshake.h"
 #include "network/tcp_chunk_transfer.h"
 #include "network/tcp_ack.h"
+#include "network/tls_context.h"
+#include "network/tls_client.h"
 
 #define INPUT_SIZE 512
 
@@ -210,7 +212,8 @@ static void sender_cleanup(
 int sender_run(void)
 {
     SOCKET client_socket = INVALID_SOCKET;
-
+    SSL_CTX *tls_context = NULL;
+    SSL *tls_connection = NULL;
     int result = 1;
     int winsock_initialized = 0;
 
@@ -414,6 +417,26 @@ chunks_created = 1;
     winsock_initialized = 1;
 
     /*
+    Initialize TLS.
+*/
+
+if (tls_initialize() != 0)
+{
+    printf("[SENDER ERROR] TLS initialization failed.\n");
+    goto cleanup;
+}
+
+tls_context = tls_create_client_context(
+    "certs/sender/trusted-receiver-cert.pem"
+);
+
+if (tls_context == NULL)
+{
+    printf("[SENDER ERROR] Could not create TLS client context.\n");
+    goto cleanup;
+}
+
+    /*
        Create TCP socket.
     */
 
@@ -465,6 +488,26 @@ chunks_created = 1;
     }
 
     printf("[SENDER] Connected successfully.\n");
+
+    /*
+    Establish encrypted TLS connection.
+*/
+
+printf("[SENDER] Starting TLS handshake...\n");
+
+tls_connection = tls_client_connect(
+    tls_context,
+    client_socket,
+    server_ip
+);
+
+if (tls_connection == NULL)
+{
+    printf("[SENDER ERROR] TLS connection failed.\n");
+    goto cleanup;
+}
+
+printf("[SENDER] Secure TLS connection established.\n");
 
     /*
        Prepare handshake information.
@@ -549,9 +592,22 @@ chunks_created = 1;
 
 cleanup:
 
+    if (tls_connection != NULL)
+    {
+        tls_client_disconnect(tls_connection);
+        tls_connection = NULL;
+    }
+
     if (client_socket != INVALID_SOCKET)
     {
         closesocket(client_socket);
+        client_socket = INVALID_SOCKET;
+    }
+
+    if (tls_context != NULL)
+    {
+        tls_destroy_context(tls_context);
+        tls_context = NULL;
     }
 
     if (winsock_initialized)
