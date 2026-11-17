@@ -35,3 +35,6 @@ cmake-build-*/
 
 # Generated audio containers
 *.sngp
+
+# TLS private keys
+certs/receiver/receiver-key.pem
