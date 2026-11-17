@@ -2,7 +2,7 @@
 #define TCP_HANDSHAKE_H
 
 #include <stdint.h>
-#include <winsock2.h>
+#include <openssl/ssl.h>
 
 #include "format.h"
 
@@ -29,25 +29,25 @@ typedef struct
 
 
 int tcp_send_handshake(
-    SOCKET socket,
+    SSL *ssl,
     const TcpFileInfo *info
 );
 
 
 int tcp_receive_handshake(
-    SOCKET socket,
+    SSL *ssl,
     TcpFileInfo *info
 );
 
 
 int tcp_send_handshake_response(
-    SOCKET socket,
+    SSL *ssl,
     unsigned char status
 );
 
 
 int tcp_receive_handshake_response(
-    SOCKET socket
+    SSL *ssl
 );
 
 #endif
