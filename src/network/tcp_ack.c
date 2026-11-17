@@ -13,7 +13,7 @@
  * Bytes 5-7: Reserved
  */
 int tcp_send_ack(
-    SOCKET socket,
+    SSL *ssl,
     unsigned char status
 )
 {
@@ -31,7 +31,7 @@ int tcp_send_ack(
     acknowledgment[4] = status;
 
     if (tcp_send_all(
-        socket,
+        ssl,
         acknowledgment,
         TCP_ACK_SIZE
     ) != 0)
@@ -55,7 +55,7 @@ int tcp_send_ack(
  * -1 = Invalid acknowledgment or communication error
  */
 int tcp_receive_ack(
-    SOCKET socket
+    SSL *ssl
 )
 {
     unsigned char acknowledgment[TCP_ACK_SIZE];
