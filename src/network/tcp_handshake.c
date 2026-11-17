@@ -153,7 +153,7 @@ static int validate_format(uint32_t format)
  * Bytes 24-279:  Filename
  */
 int tcp_send_handshake(
-    SOCKET socket,
+    SSL *ssl,
     const TcpFileInfo *info
 )
 {
@@ -214,7 +214,7 @@ int tcp_send_handshake(
     );
 
     if (tcp_send_all(
-        socket,
+        ssl,
         packet,
         TCP_HANDSHAKE_PACKET_SIZE
     ) != 0)
@@ -233,7 +233,7 @@ int tcp_send_handshake(
  * Receive and validate file information.
  */
 int tcp_receive_handshake(
-    SOCKET socket,
+    SSL *ssl,
     TcpFileInfo *info
 )
 {
@@ -246,7 +246,7 @@ int tcp_receive_handshake(
     unsigned char packet[TCP_HANDSHAKE_PACKET_SIZE];
 
     if (tcp_receive_all(
-        socket,
+        ssl,
         packet,
         TCP_HANDSHAKE_PACKET_SIZE
     ) != 0)
@@ -372,7 +372,7 @@ int tcp_receive_handshake(
  * Bytes 5-7: Reserved
  */
 int tcp_send_handshake_response(
-    SOCKET socket,
+    SSL *ssl,
     unsigned char status
 )
 {
@@ -394,7 +394,7 @@ int tcp_send_handshake_response(
     response[4] = status;
 
     if (tcp_send_all(
-        socket,
+        ssl,
         response,
         TCP_HANDSHAKE_RESPONSE_SIZE
     ) != 0)
@@ -419,13 +419,13 @@ int tcp_send_handshake_response(
  * -1 = Communication or validation error
  */
 int tcp_receive_handshake_response(
-    SOCKET socket
+    SSL *ssl
 )
 {
     unsigned char response[TCP_HANDSHAKE_RESPONSE_SIZE];
 
     if (tcp_receive_all(
-        socket,
+        ssl,
         response,
         TCP_HANDSHAKE_RESPONSE_SIZE
     ) != 0)
