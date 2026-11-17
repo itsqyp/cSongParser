@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include <winsock2.h>
 
 #include "tcp_chunk_transfer.h"
 #include "tcp_file_transfer.h"
@@ -407,7 +406,7 @@ static int discover_chunks(
 
 /* Send multiple SNGC chunk files. */
 int tcp_send_chunks(
-    SOCKET socket,
+    SSL *ssl,
     const char *input_prefix
 )
 {
@@ -430,7 +429,7 @@ int tcp_send_chunks(
 
     encode_u32_be(total_chunks, count_header);
 
-    if (tcp_send_all(socket, count_header, 4) != 0)
+   if (tcp_send_all(ssl, count_header, 4) != 0)
     {
         printf("[CHUNK TRANSFER ERROR] Failed to send chunk count.\n");
         return -1;
@@ -473,7 +472,7 @@ int tcp_send_chunks(
 /* Receive multiple SNGC chunk files. */
 
 int tcp_receive_chunks(
-    SOCKET socket,
+    SSL *ssl,
     const char *output_prefix,
     uint32_t *received_chunk_count
 )
@@ -491,7 +490,7 @@ int tcp_receive_chunks(
     /* Receive total chunk count. */
     unsigned char count_header[4];
 
-    if (tcp_receive_all(socket, count_header, 4) != 0)
+   if (tcp_receive_all(ssl, count_header, 4) != 0)
     {
         printf("[CHUNK TRANSFER ERROR] Failed to receive chunk count.\n");
         return -1;
