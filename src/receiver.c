@@ -340,10 +340,10 @@ int receiver_run(void)
        Receive sender handshake.
     */
 
-    if (tcp_receive_handshake(
-        client_socket,
-        &incoming_file
-    ) != 0)
+   if (tcp_receive_handshake(
+    tls_connection,
+    &incoming_file
+) != 0)
     {
         printf("[RECEIVER ERROR] Invalid sender handshake.\n");
         goto cleanup;
@@ -356,9 +356,9 @@ int receiver_run(void)
     if (receiver_display_file_info(&incoming_file) != 0)
     {
         tcp_send_handshake_response(
-            client_socket,
-            TCP_HANDSHAKE_REJECT
-        );
+    tls_connection,
+    TCP_HANDSHAKE_REJECT
+);
 
         goto cleanup;
     }
@@ -372,10 +372,10 @@ int receiver_run(void)
         sizeof(destination)
     ) != 0)
     {
-        tcp_send_handshake_response(
-            client_socket,
-            TCP_HANDSHAKE_REJECT
-        );
+       tcp_send_handshake_response(
+    tls_connection,
+    TCP_HANDSHAKE_REJECT
+);
 
         goto cleanup;
     }
@@ -406,9 +406,9 @@ int receiver_run(void)
         printf("[RECEIVER ERROR] Destination path is too long.\n");
 
         tcp_send_handshake_response(
-            client_socket,
-            TCP_HANDSHAKE_REJECT
-        );
+    tls_connection,
+    TCP_HANDSHAKE_REJECT
+);
 
         goto cleanup;
     }
@@ -418,7 +418,7 @@ int receiver_run(void)
     */
 
     if (tcp_send_handshake_response(
-        client_socket,
+        tls_connection,
         TCP_HANDSHAKE_ACCEPT
     ) != 0)
     {
@@ -437,11 +437,11 @@ int receiver_run(void)
 
     printf("\n[RECEIVER] Receiving chunks...\n");
 
-    if (tcp_receive_chunks(
-        client_socket,
-        output_prefix,
-        &received_chunk_count
-    ) != 0)
+   if (tcp_receive_chunks(
+    tls_connection,
+    output_prefix,
+    &received_chunk_count
+) != 0)
     {
         printf("[RECEIVER ERROR] Chunk reception failed.\n");
         goto transfer_finished;
@@ -547,7 +547,7 @@ transfer_finished:
         unsigned char ack_status =
             result == 0 ? TCP_ACK_SUCCESS : TCP_ACK_FAILURE;
 
-        if (tcp_send_ack(client_socket, ack_status) != 0)
+        if (tcp_send_ack(tls_connection, ack_status) != 0)
         {
             printf("[RECEIVER ERROR] Could not send final ACK.\n");
             result = 1;
