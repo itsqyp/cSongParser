@@ -12,6 +12,9 @@
 #include "network/socket_utils.h"
 #include "network/tcp_handshake.h"
 
+#include "network/tls_context.h"
+#include "network/tls_server.h"
+
 #include "decoder.h"
 #include "reassembler.h"
 
