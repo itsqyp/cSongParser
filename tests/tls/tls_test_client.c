@@ -35,6 +35,9 @@ int main(void)
     SSL_CTX *context = tls_create_client_context(
         "certs/sender/trusted-receiver-cert.pem"
     );
+//     SSL_CTX *context = tls_create_client_context(
+//     "certs/sender/untrusted-cert.pem"
+// );
 
     if (context == NULL)
     {
