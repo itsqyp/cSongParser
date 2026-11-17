@@ -535,9 +535,9 @@ printf("[SENDER] Secure TLS connection established.\n");
     printf("\n[SENDER] Sending transfer request...\n");
 
     if (tcp_send_handshake(
-        client_socket,
-        &file_info
-    ) != 0)
+    tls_connection,
+    &file_info
+) != 0)
     {
         printf("[SENDER ERROR] Could not send handshake.\n");
         goto cleanup;
@@ -547,7 +547,7 @@ printf("[SENDER] Secure TLS connection established.\n");
        Wait for receiver acceptance.
     */
 
-    if (tcp_receive_handshake_response(client_socket) != 0)
+    if (tcp_receive_handshake_response(tls_connection) != 0)
     {
         printf("[SENDER] Receiver rejected the transfer.\n");
         goto cleanup;
@@ -562,8 +562,8 @@ printf("[SENDER] Secure TLS connection established.\n");
     printf("\n[SENDER] Transferring chunks...\n");
 
     if (tcp_send_chunks(
-        client_socket,
-        output_prefix
+    tls_connection,
+    output_prefix
     ) != 0)
     {
         printf("[SENDER ERROR] Chunk transfer failed.\n");
@@ -576,7 +576,7 @@ printf("[SENDER] Secure TLS connection established.\n");
 
     printf("\n[SENDER] Waiting for final verification...\n");
 
-    if (tcp_receive_ack(client_socket) != 0)
+   if (tcp_receive_ack(tls_connection) != 0)
     {
         printf("[SENDER ERROR] Final transfer acknowledgement failed.\n");
         goto cleanup;
