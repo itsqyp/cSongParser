@@ -177,6 +177,9 @@ int receiver_run(void)
 {
     SOCKET server_socket = INVALID_SOCKET;
     SOCKET client_socket = INVALID_SOCKET;
+    
+    SSL_CTX *tls_context = NULL;
+    SSL *tls_connection = NULL;
 
     unsigned short port;
 
