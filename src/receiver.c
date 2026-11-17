@@ -226,6 +226,27 @@ int receiver_run(void)
 
     winsock_initialized = 1;
 
+        /*
+       Initialize TLS.
+    */
+
+    if (tls_initialize() != 0)
+    {
+        printf("[RECEIVER ERROR] TLS initialization failed.\n");
+        goto cleanup;
+    }
+
+    tls_context = tls_create_server_context(
+        "certs/receiver/receiver-cert.pem",
+        "certs/receiver/receiver-key.pem"
+    );
+
+    if (tls_context == NULL)
+    {
+        printf("[RECEIVER ERROR] Could not create TLS server context.\n");
+        goto cleanup;
+    }
+
     /*
        Create TCP socket.
     */
