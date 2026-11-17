@@ -47,6 +47,49 @@ add_executable(
     src/network/tls_io.c
 )
 
+# ==========================================
+# TLS TEST APPLICATIONS
+# ==========================================
+
+set(TLS_TEST_SOURCES
+    src/network/tls_context.c
+    src/network/tls_client.c
+    src/network/tls_server.c
+    src/network/tls_io.c
+)
+
+# TLS Test Server
+add_executable(tls_test_server
+    tests/tls/tls_test_server.c
+    ${TLS_TEST_SOURCES}
+)
+
+target_include_directories(tls_test_server PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(tls_test_server PRIVATE
+    ws2_32
+    OpenSSL::SSL
+    OpenSSL::Crypto
+)
+
+# TLS Test Client
+add_executable(tls_test_client
+    tests/tls/tls_test_client.c
+    ${TLS_TEST_SOURCES}
+)
+
+target_include_directories(tls_test_client PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(tls_test_client PRIVATE
+    ws2_32
+    OpenSSL::SSL
+    OpenSSL::Crypto
+)
+
 target_link_libraries(
     CSongParser
     PRIVATE
@@ -62,6 +105,14 @@ target_include_directories(
         ${PROJECT_SOURCE_DIR}/src
         ${PROJECT_SOURCE_DIR}/include
 )
+
+if(MSVC)
+    target_compile_options(tls_test_server PRIVATE /W4)
+    target_compile_options(tls_test_client PRIVATE /W4)
+else()
+    target_compile_options(tls_test_server PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(tls_test_client PRIVATE -Wall -Wextra -Wpedantic)
+endif()
 
 if(MSVC)
     target_compile_options(
