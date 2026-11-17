@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdint.h>
-#include <winsock2.h>
 
 #include "tcp_file_transfer.h"
 #include "tcp_io.h"
@@ -40,7 +39,7 @@ static uint64_t decode_u64_be(
 }
 
 int tcp_send_file(
-    SOCKET socket,
+    SSL *ssl,
     const char *filename
 )
 {
@@ -85,10 +84,10 @@ int tcp_send_file(
     );
 
     if (tcp_send_all(
-        socket,
-        file_size_header,
-        sizeof(file_size_header)
-    ) != 0)
+    ssl,
+    file_size_header,
+    sizeof(file_size_header)
+) != 0)
     {
         fclose(file);
 
@@ -132,10 +131,10 @@ int tcp_send_file(
         }
 
         if (tcp_send_all(
-                socket,
-                buffer,
-                (int)bytes_read
-            ) != 0)
+         ssl,
+         buffer,
+         (int)bytes_read
+    ) != 0)
         {
             fclose(file);
 
@@ -155,18 +154,18 @@ int tcp_send_file(
 
 
 int tcp_receive_file(
-    SOCKET socket,
+    SSL *ssl,
     const char *output_filename
 )
 {
     // Receive file size.
     unsigned char file_size_header[8];
 
-    if (tcp_receive_all(
-        socket,
-        file_size_header,
-        sizeof(file_size_header)
-    ) != 0)
+   if (tcp_receive_all(
+    ssl,
+    file_size_header,
+    sizeof(file_size_header)
+) != 0)
     {
     return -1;
     }
@@ -211,11 +210,11 @@ int tcp_receive_file(
             bytes_to_receive = (int)remaining;
         }
 
-        if (tcp_receive_all(
-                socket,
-                buffer,
-                bytes_to_receive
-            ) != 0)
+       if (tcp_receive_all(
+        ssl,
+        buffer,
+        bytes_to_receive
+    ) != 0)
         {
             fclose(file);
             remove(output_filename);
