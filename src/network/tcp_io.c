@@ -1,44 +1,30 @@
 #include <stdio.h>
-#include <winsock2.h>
+#include <stddef.h>
 
 #include "tcp_io.h"
+#include "tls_io.h"
 
 
 int tcp_send_all(
-    SOCKET socket,
+    SSL *ssl,
     const void *buffer,
     int length
 )
 {
-    const char *data = (const char *)buffer;
-
-    int total_sent = 0;
-
-    while (total_sent < length)
+    if (ssl == NULL || buffer == NULL || length < 0)
     {
-        int sent = send(
-            socket,
-            data + total_sent,
-            length - total_sent,
-            0
-        );
+        printf("[NETWORK ERROR] Invalid send parameters.\n");
+        return -1;
+    }
 
-        if (sent == SOCKET_ERROR)
-        {
-            printf("[NETWORK ERROR] Failed to send data.\n");
-            printf("Error Code: %d\n", WSAGetLastError());
-
-            return -1;
-        }
-
-        if (sent == 0)
-        {
-            printf("[NETWORK ERROR] Connection closed while sending.\n");
-
-            return -1;
-        }
-
-        total_sent += sent;
+    if (tls_send_all(
+        ssl,
+        buffer,
+        (size_t)length
+    ) != 0)
+    {
+        printf("[NETWORK ERROR] Failed to send TLS data.\n");
+        return -1;
     }
 
     return 0;
@@ -46,40 +32,25 @@ int tcp_send_all(
 
 
 int tcp_receive_all(
-    SOCKET socket,
+    SSL *ssl,
     void *buffer,
     int length
 )
 {
-    char *data = (char *)buffer;
-
-    int total_received = 0;
-
-    while (total_received < length)
+    if (ssl == NULL || buffer == NULL || length < 0)
     {
-        int received = recv(
-            socket,
-            data + total_received,
-            length - total_received,
-            0
-        );
+        printf("[NETWORK ERROR] Invalid receive parameters.\n");
+        return -1;
+    }
 
-        if (received == SOCKET_ERROR)
-        {
-            printf("[NETWORK ERROR] Failed to receive data.\n");
-            printf("Error Code: %d\n", WSAGetLastError());
-
-            return -1;
-        }
-
-        if (received == 0)
-        {
-            printf("[NETWORK ERROR] Connection closed while receiving.\n");
-
-            return -1;
-        }
-
-        total_received += received;
+    if (tls_receive_all(
+        ssl,
+        buffer,
+        (size_t)length
+    ) != 0)
+    {
+        printf("[NETWORK ERROR] Failed to receive TLS data.\n");
+        return -1;
     }
 
     return 0;
