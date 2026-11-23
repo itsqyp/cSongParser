@@ -7,6 +7,8 @@
 #include "tcp_chunk_transfer.h"
 #include "tcp_ack.h"
 #include "reassembler.h"
+#include "tls_context.h"
+#include "tls_server.h"
 
 #define SERVER_BACKLOG 5
 
@@ -21,8 +23,11 @@ int tcp_server_run(
         return -1;
     }
 
-    SOCKET server_socket = INVALID_SOCKET;
-    SOCKET client_socket = INVALID_SOCKET;
+   SOCKET server_socket = INVALID_SOCKET;
+   SOCKET client_socket = INVALID_SOCKET;
+
+   SSL_CTX *tls_context = NULL;  
+   SSL *tls_connection = NULL;
 
     struct sockaddr_in server_address;
     struct sockaddr_in client_address;
@@ -87,17 +92,51 @@ int tcp_server_run(
     }
 
     printf("[SERVER] Client connected.\n");
+    /* Initialize TLS. */
+if (tls_initialize() != 0)
+{
+    printf("[SERVER] TLS initialization failed.\n");
+    goto cleanup;
+}
+
+tls_context = tls_create_server_context(
+    "certs/receiver/receiver-cert.pem",
+    "certs/receiver/receiver-key.pem"
+);
+
+if (tls_context == NULL)
+{
+    printf("[SERVER] Could not create TLS server context.\n");
+    goto cleanup;
+}
+
+/* Establish encrypted connection. */
+printf("[SERVER] Starting TLS handshake...\n");
+
+tls_connection = tls_server_accept(
+    tls_context,
+    client_socket
+);
+
+if (tls_connection == NULL)
+{
+    printf("[SERVER] TLS handshake failed.\n");
+    goto cleanup;
+}
+
+printf("[SERVER] Secure TLS connection established.\n");
+
 
     /* Receive all binary chunks. */
-    if (tcp_receive_chunks(
-        client_socket,
-        output_prefix,
-        &received_chunk_count
-    ) != 0)
+   if (tcp_receive_chunks(
+    tls_connection,
+    output_prefix,
+    &received_chunk_count
+) != 0)
     {
         printf("[SERVER] Chunk reception failed.\n");
 
-        tcp_send_ack(client_socket, TCP_ACK_FAILURE);
+        tcp_send_ack(tls_connection, TCP_ACK_FAILURE);
 
         goto cleanup;
     }
@@ -118,7 +157,7 @@ int tcp_server_run(
     {
         printf("[SERVER] Output filename is too long.\n");
 
-        tcp_send_ack(client_socket, TCP_ACK_FAILURE);
+        tcp_send_ack(tls_connection, TCP_ACK_FAILURE);
 
         goto cleanup;
     }
@@ -133,7 +172,7 @@ int tcp_server_run(
     {
         printf("[SERVER] Chunk reassembly or validation failed.\n");
 
-        tcp_send_ack(client_socket, TCP_ACK_FAILURE);
+        tcp_send_ack(tls_connection, TCP_ACK_FAILURE);
 
         goto cleanup;
     }
@@ -141,7 +180,7 @@ int tcp_server_run(
     printf("[SERVER] SNGP container reconstructed successfully.\n");
 
     /* Send success acknowledgment only after validation. */
-    if (tcp_send_ack(client_socket, TCP_ACK_SUCCESS) != 0)
+    if (tcp_send_ack(tls_connection, TCP_ACK_SUCCESS) != 0)
     {
         printf("[SERVER] Failed to send acknowledgment.\n");
         goto cleanup;
@@ -151,6 +190,12 @@ int tcp_server_run(
 
 cleanup:
 
+    if (tls_connection != NULL)
+    {
+        tls_server_disconnect(tls_connection);
+        tls_connection = NULL;
+    }
+
     if (client_socket != INVALID_SOCKET)
     {
         closesocket(client_socket);
@@ -159,6 +204,11 @@ cleanup:
     if (server_socket != INVALID_SOCKET)
     {
         closesocket(server_socket);
+    }
+
+    if (tls_context != NULL)
+    {
+        tls_destroy_context(tls_context);
     }
 
     return result;
