@@ -61,7 +61,7 @@ int tcp_receive_ack(
     unsigned char acknowledgment[TCP_ACK_SIZE];
 
     if (tcp_receive_all(
-        socket,
+        ssl,
         acknowledgment,
         TCP_ACK_SIZE
     ) != 0)

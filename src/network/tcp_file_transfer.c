@@ -214,7 +214,7 @@ int tcp_receive_file(
         ssl,
         buffer,
         bytes_to_receive
-    ) != 0)
+        ) != 0)
         {
             fclose(file);
             remove(output_filename);
