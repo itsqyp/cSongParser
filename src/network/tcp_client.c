@@ -6,6 +6,8 @@
 #include "tcp_client.h"
 #include "tcp_chunk_transfer.h"
 #include "tcp_ack.h"
+#include "tls_context.h"
+#include "tls_client.h"
 
 
 
@@ -43,7 +45,10 @@ int tcp_client_run(
     const char *input_prefix
 )
 {
-    SOCKET client_socket = INVALID_SOCKET;
+   SOCKET client_socket = INVALID_SOCKET;
+
+  SSL_CTX *tls_context = NULL; 
+  SSL *tls_connection = NULL;
 
     struct sockaddr_in server_address = {0};
 
@@ -105,48 +110,102 @@ if (address_result == SOCKET_ERROR)
 
     printf("[CLIENT ERROR] Windows socket error: %d\n", error_code);
 
-    closesocket(client_socket);
-    return -1;
+   tls_client_disconnect(tls_connection);
+tls_destroy_context(tls_context);
+closesocket(client_socket);
+return -1;
 }
 
     printf("[CLIENT] Connected successfully.\n");
+    /* Initialize TLS. */
+if (tls_initialize() != 0)
+{
+    printf("[CLIENT ERROR] TLS initialization failed.\n");
+    tls_client_disconnect(tls_connection);
+tls_destroy_context(tls_context);
+closesocket(client_socket);
+return -1;
+}
+
+tls_context = tls_create_client_context(
+    "certs/sender/trusted-receiver-cert.pem"
+);
+
+if (tls_context == NULL)
+{
+    printf("[CLIENT ERROR] Could not create TLS client context.\n");
+   tls_client_disconnect(tls_connection);
+tls_destroy_context(tls_context);
+closesocket(client_socket);
+return -1;
+}
+
+/* Establish encrypted connection. */
+printf("[CLIENT] Starting TLS handshake...\n");
+
+tls_connection = tls_client_connect(
+    tls_context,
+    client_socket,
+    server_ip
+);
+
+if (tls_connection == NULL)
+{
+    printf("[CLIENT ERROR] TLS connection failed.\n");
+
+    tls_destroy_context(tls_context);
+   tls_client_disconnect(tls_connection);
+tls_destroy_context(tls_context);
+closesocket(client_socket);
+return -1;
+}
+
+printf("[CLIENT] Secure TLS connection established.\n");
 
     /* Automatically discover and send chunks. */
-    if (tcp_send_chunks(
-        client_socket,
-        input_prefix
-    ) != 0)
+   if (tcp_send_chunks(
+    tls_connection,
+    input_prefix
+) != 0)
     {
         printf("[CLIENT] Chunk transfer failed.\n");
 
-        closesocket(client_socket);
-        return -1;
+       tls_client_disconnect(tls_connection);
+tls_destroy_context(tls_context);
+closesocket(client_socket);
+return -1;
     }
 
     /* Wait for server acknowledgment. */
 printf("[CLIENT] Waiting for server acknowledgment...\n");
 
-int acknowledgment = tcp_receive_ack(client_socket);
+int acknowledgment = tcp_receive_ack(tls_connection);
 
 if (acknowledgment == TCP_ACK_FAILURE)
 {
     printf("[CLIENT] Server rejected the transfer.\n");
 
-    closesocket(client_socket);
-    return -1;
+  tls_client_disconnect(tls_connection);
+tls_destroy_context(tls_context);
+closesocket(client_socket);
+return -1;
 }
 
 if (acknowledgment != TCP_ACK_SUCCESS)
 {
     printf("[CLIENT] Invalid or missing server acknowledgment.\n");
 
-    closesocket(client_socket);
-    return -1;
+   tls_client_disconnect(tls_connection);
+tls_destroy_context(tls_context);
+closesocket(client_socket);
+return -1;
 }
 
 printf("[CLIENT] Server confirmed successful transfer.\n");
 printf("[CLIENT] Transfer completed successfully.\n");
 
+tls_client_disconnect(tls_connection);
+tls_destroy_context(tls_context);
 closesocket(client_socket);
 
 return 0;
