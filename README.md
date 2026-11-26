@@ -94,32 +94,37 @@ The sender verifies the receiver's TLS certificate before transferring file info
 
 ## Verified Result
 
-**TLS testing between two local instances over `127.0.0.1`:**
+**Complete end-to-end TLS file transfer between two local instances over `127.0.0.1`:**
 
-| Item                              | Result                                |
-| --------------------------------- | ------------------------------------- |
-| TLS protocol                      | TLS 1.3                               |
-| Cipher suite                      | TLS_AES_256_GCM_SHA384                |
-| Receiver certificate verification | Successful                            |
-| Invalid certificate test          | Correctly rejected                    |
-| File information handshake        | Successful                            |
-| Transfer acceptance               | Successful                            |
-| Chunks transferred                | 3                                     |
-| Chunk reception                   | All 3 chunks received successfully    |
-| Chunk checksums                   | All verified                          |
-| SNGP reassembly                   | Successful                            |
-| Final file extraction             | Requires a valid destination filename |
+| Item                              | Result                             |
+| --------------------------------- | ---------------------------------- |
+| TLS protocol                      | TLS 1.3                            |
+| Cipher suite                      | TLS_AES_256_GCM_SHA384             |
+| Receiver certificate verification | Successful                         |
+| Invalid certificate test          | Correctly rejected                 |
+| File information handshake        | Successful                         |
+| Transfer acceptance               | Successful                         |
+| Chunks transferred                | 3                                  |
+| Chunk reception                   | All 3 chunks received successfully |
+| Chunk checksums                   | All verified                       |
+| SNGP reassembly                   | Successful                         |
+| SNGP payload SHA-256 verification | Successful                         |
+| Original MP3 extraction           | Successful                         |
+| Received file size                | 2,445,061 bytes                    |
+| Original and received MP3 SHA-256 | Identical                          |
 
-**Previously verified file integrity:**
+**File integrity verification:**
 
-| Item                               | Value                                                              |
-| ---------------------------------- | ------------------------------------------------------------------ |
-| Input                              | `songs/song.mp3` (2,445,061 bytes)                                 |
-| Container                          | 2,445,269 bytes                                                    |
-| Chunks                             | 3 × up to 1 MB                                                     |
-| SHA-256 (original = reconstructed) | `5027DD6474AD17F87E0F99EF012DBE5843B33469866845EA35BFAACB3E9A756D` |
+| Item                          | Value                                                              |
+| ----------------------------- | ------------------------------------------------------------------ |
+| Original file                 | `songs/song.mp3`                                                   |
+| Received file                 | `songs/output/received-song.mp3`                                   |
+| Original file size            | 2,445,061 bytes                                                    |
+| Container size                | 2,445,269 bytes                                                    |
+| Number of chunks              | 3                                                                  |
+| SHA-256 (original = received) | `5027DD6474AD17F87E0F99EF012DBE5843B33469866845EA35BFAACB3E9A756D` |
 
-The TLS handshake, certificate verification, and chunk transfer have been tested locally. A complete end-to-end TLS transfer with final extracted-file hash comparison is still pending.
+The complete transfer pipeline has been successfully tested over an encrypted TLS connection. The original and received MP3 files produced identical SHA-256 hashes, confirming bit-for-bit file integrity.
 
 ## Limitations
 
